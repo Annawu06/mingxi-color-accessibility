@@ -10,7 +10,7 @@ const autoContrast = document.querySelector('#autoContrast');
 const linkHints = document.querySelector('#linkHints');
 const colorRemap = document.querySelector('#colorRemap');
 const requiredHints = document.querySelector('#requiredHints');
-let settings = { enabled: false, mode: 'deuteranopia', intensity: 65, semanticHints: true, enhanceImages: true, autoContrast: true, chartHints: true, linkHints: true, requiredHints: true, colorRemap: true, excluded: false };
+let settings = { enabled: false, mode: 'deuteranopia', intensity: 65, semanticHints: true, enhanceImages: true, autoContrast: true, chartHints: true, linkHints: true, requiredHints: true, colorRemap: true, excluded: false, customMappings: [] };
 let siteKey = 'global';
 
 async function getSite() {
@@ -30,6 +30,7 @@ function render() {
   intensity.value = settings.intensity; intensityValue.textContent = `${settings.intensity}%`;
   semanticHints.checked = settings.semanticHints; enhanceImages.checked = settings.enhanceImages;
   autoContrast.checked = settings.autoContrast; linkHints.checked = settings.linkHints; colorRemap.checked = settings.colorRemap !== false; requiredHints.checked = settings.requiredHints !== false;
+  renderMappings();
 }
 
 async function apply() {
@@ -56,6 +57,9 @@ linkHints.addEventListener('change', () => { settings.linkHints = linkHints.chec
 colorRemap.addEventListener('change', () => { settings.colorRemap = colorRemap.checked; apply(); });
 requiredHints.addEventListener('change', () => { settings.requiredHints = requiredHints.checked; apply(); });
 
+function renderMappings() { const list = document.querySelector('#mappingList'); list.innerHTML = settings.customMappings?.length ? settings.customMappings.map((rule, index) => `<button data-remove-mapping="${index}" title="删除规则"><i style="background:${rule.from}"></i>${rule.from} → <i style="background:${rule.to}"></i>${rule.to} ×</button>`).join('') : '暂未添加规则'; list.querySelectorAll('[data-remove-mapping]').forEach((button) => button.addEventListener('click', () => { settings.customMappings.splice(Number(button.dataset.removeMapping), 1); apply(); })); }
+document.querySelector('#addMapping').addEventListener('click', () => { const rule = { from:document.querySelector('#mapFrom').value.toUpperCase(), to:document.querySelector('#mapTo').value.toUpperCase() }; settings.customMappings = [...(settings.customMappings || []).filter((item) => item.from !== rule.from), rule]; apply(); });
+
 document.querySelector('#probe').addEventListener('click', () => sendToolMessage('toggle-probe'));
 document.querySelector('#reader').addEventListener('click', () => sendToolMessage('toggle-reader'));
 document.querySelector('#exclude').addEventListener('click', async () => { settings.excluded = !settings.excluded; settings.enabled = !settings.excluded; await apply(); document.querySelector('#exclude').textContent = settings.excluded ? '已排除本站' : '排除本站'; });
@@ -73,7 +77,7 @@ document.querySelector('#resetSite').addEventListener('click', async () => {
   if (siteKey !== 'global') await chrome.storage.sync.remove(siteKey);
   const feedbackKeys = ['success', 'chart', 'link'].map((kind) => `feedback:${siteKey}:${settings.mode}:${kind}`);
   await chrome.storage.local.remove(feedbackKeys);
-  settings = { enabled:false, mode:'deuteranopia', intensity:65, semanticHints:true, enhanceImages:true, autoContrast:true, chartHints:true, linkHints:true, requiredHints:true, colorRemap:true, excluded:false };
+  settings = { enabled:false, mode:'deuteranopia', intensity:65, semanticHints:true, enhanceImages:true, autoContrast:true, chartHints:true, linkHints:true, requiredHints:true, colorRemap:true, excluded:false, customMappings:[] };
   await apply();
 });
 document.querySelector('#dataTools').addEventListener('click', async () => {
