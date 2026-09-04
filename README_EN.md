@@ -10,7 +10,6 @@ Mingxi helps people with color vision deficiency understand web content more cle
 
 - Optional color remapping as an assistive layer
 - Automatic text and background contrast enhancement
-- Per-site webpage font scaling
 - Text and icon cues for success, warning, and error states
 - Underlined links plus chart and image enhancement
 - Per-site settings and adjustable filter intensity
