@@ -1,27 +1,29 @@
-# Mingxi 明晰 · Color Accessibility
+# Mingxi 明晰 · 色彩无障碍
+
+[English README](README_EN.md)
 
 帮助色盲和色弱用户更容易理解网页信息。
 
-## Features
+## 功能
 
-- Color remapping as an optional assistive layer
-- Automatic text contrast enhancement
-- Text and icon cues for success, warning, and error states
-- Underlined links and chart/image enhancement
-- Per-site settings and intensity control
-- A non-medical color-vision screening experience
+- 可选的颜色重映射辅助层
+- 自动提高文字与背景对比度
+- 为成功、警告和错误状态增加文字与图标提示
+- 为链接增加下划线，并增强图表和图片
+- 按网站保存设置并支持强度调节
+- 非医疗性质的色觉初步筛查体验
 
-## Disclaimer
+## 免责声明
 
-Mingxi is an accessibility aid, not a medical diagnostic or treatment tool. The current color-vision test is for non-medical screening only.
+明晰是无障碍辅助工具，不是医学诊断或治疗工具。当前色觉测试仅用于非医疗筛查。
 
-## Install locally
+## 本地安装
 
-1. Open `chrome://extensions/` or `edge://extensions/`.
-2. Enable Developer mode.
-3. Choose **Load unpacked**.
-4. Select the `extension/` folder.
+1. 打开 `chrome://extensions/` 或 `edge://extensions/`。
+2. 开启“开发者模式”。
+3. 点击“加载已解压的扩展程序”。
+4. 选择 `extension/` 文件夹。
 
-## License
+## 许可证
 
-The project code is released under the MIT License. Third-party methods and test resources retain their own licenses; see the in-extension attribution and source links.
+项目代码采用 MIT License。第三方算法、方法和测试资源仍遵循各自的许可证，请查看插件内的来源与署名信息。
