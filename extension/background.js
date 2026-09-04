@@ -7,7 +7,7 @@ chrome.runtime.onInstalled.addListener(() => {
 chrome.runtime.onStartup.addListener(createContextMenus);
 
 chrome.contextMenus.onClicked.addListener((info, tab) => {
-  if (info.menuItemId === 'mingxi-inspect' && tab?.id) chrome.tabs.sendMessage(tab.id, { type:'inspect-element' }).then((result) => {
+  if (info.menuItemId === 'mingxi-inspect' && tab?.id) chrome.tabs.sendMessage(tab.id, { type:'inspect-element', selectionText:info.selectionText || '', srcUrl:info.srcUrl || '' }).then((result) => {
     if (result) chrome.notifications?.create({ type:'basic', iconUrl:'icon128.png', title:'明晰对比度检查', message:`${result.element || '当前元素'}：对比度 ${result.contrast ?? '—'}，${result.friendly ? '基本友好' : '可能需要增强'}` });
   }).catch(() => {});
 });
