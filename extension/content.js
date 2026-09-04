@@ -1,6 +1,8 @@
 const STYLE_ID = 'mingxi-color-friendly-style';
 let originalRootFilter;
 let hasCapturedRootFilter = false;
+let originalBodyFilter;
+let hasCapturedBodyFilter = false;
 let scanTimer;
 let observerTimer;
 let probeEnabled = false;
@@ -21,8 +23,11 @@ function applySettings(settings) {
   if (!settings.enabled || settings.excluded) {
     style.textContent = '';
     if (hasCapturedRootFilter) { if (originalRootFilter.value) document.documentElement.style.setProperty('filter', originalRootFilter.value, originalRootFilter.priority); else document.documentElement.style.removeProperty('filter'); }
+    if (hasCapturedBodyFilter && document.body) { if (originalBodyFilter.value) document.body.style.setProperty('filter', originalBodyFilter.value, originalBodyFilter.priority); else document.body.style.removeProperty('filter'); }
     document.documentElement.dataset.mingxiImages = 'false';
     document.documentElement.dataset.mingxiLinks = 'false';
+    document.documentElement.dataset.mingxiRemap = 'false';
+    document.documentElement.style.removeProperty('--mingxi-remap-filter');
     clearEnhancements();
     return;
   }
@@ -30,11 +35,20 @@ function applySettings(settings) {
   const contrast = (1 + intensity / 100 * 0.12).toFixed(2);
   const filter = modeStyles[settings.mode] || modeStyles.deuteranopia;
   if (!hasCapturedRootFilter) { originalRootFilter = { value: document.documentElement.style.getPropertyValue('filter'), priority: document.documentElement.style.getPropertyPriority('filter') }; hasCapturedRootFilter = true; }
-  if (settings.colorRemap !== false) document.documentElement.style.setProperty('filter', `${filter} contrast(${contrast})`, 'important');
-  else if (originalRootFilter.value) document.documentElement.style.setProperty('filter', originalRootFilter.value, originalRootFilter.priority);
-  else document.documentElement.style.removeProperty('filter');
+  if (document.body && !hasCapturedBodyFilter) { originalBodyFilter = { value: document.body.style.getPropertyValue('filter'), priority: document.body.style.getPropertyPriority('filter') }; hasCapturedBodyFilter = true; }
+  // Apply the remap to the body's top-level content instead of html/body.
+  // A filter on body can change fixed-position/stacking behavior and create
+  // an apparent blank strip above the page on some sites.
+  if (settings.colorRemap !== false) {
+    document.documentElement.dataset.mingxiRemap = 'true';
+    document.documentElement.style.setProperty('--mingxi-remap-filter', `${filter} contrast(${contrast})`, 'important');
+  } else {
+    document.documentElement.dataset.mingxiRemap = 'false';
+    document.documentElement.style.removeProperty('--mingxi-remap-filter');
+  }
   style.textContent = `
     svg#mingxi-filter-defs { position:absolute; width:0; height:0; }
+    html[data-mingxi-remap="true"] body > *:not(#mingxi-filter-defs):not(#mingxi-reader) { filter:var(--mingxi-remap-filter) !important; }
     [data-mingxi-mark]::before { content:attr(data-mingxi-mark); display:inline-block; margin-right:.4em; font-weight:700; }
     [data-mingxi-mark="✓"]::before { color:#087443; } [data-mingxi-mark="!"]::before { color:#a34a00; } [data-mingxi-mark="×"]::before { color:#a00025; }
     html[data-mingxi-links="true"] a:not([role="button"]):not([class*="button" i]) { text-decoration-line:underline !important; text-decoration-thickness:.12em !important; text-underline-offset:.16em !important; }
@@ -123,8 +137,11 @@ function escapeHtml(value) { return value.replace(/[&<>"']/g, (char) => ({ '&':'
 
 async function refresh() { const defaults = { enabled:false, mode:'deuteranopia', intensity:65, fontScale:100, semanticHints:true, enhanceImages:true, autoContrast:true, chartHints:true, linkHints:true, requiredHints:true, colorRemap:true, excluded:false, customMappings:[] }; const siteKey = `site:${location.hostname}`; try { const saved = await chrome.storage.sync.get({ global:defaults, [siteKey]:null }); applySettings({ ...defaults, ...(saved.global || {}), ...(saved[siteKey] || {}) }); } catch (error) { if (!String(error?.message || error).includes('Extension context invalidated')) console.warn('[明晰]', error); } }
 chrome.runtime.onMessage.addListener((message) => { if (message.type === 'apply-settings') applySettings(message.settings); if (message.type === 'refresh-settings') refresh().catch(() => {}); if (message.type === 'toggle-probe') toggleProbe(); if (message.type === 'toggle-reader') toggleReader(); if (message.type === 'toggle-settings') refresh().then(() => chrome.storage.sync.get({ global:{} }).then((saved) => { const siteKey = `site:${location.hostname}`; return chrome.storage.sync.get({ [siteKey]:saved.global }).then((current) => { const next = { ...(current[siteKey] || saved.global), enabled: !(current[siteKey] || saved.global).enabled }; return chrome.storage.sync.set({ [siteKey]:next }).then(() => applySettings(next)); }); })).catch(() => {}); });
-const defs = document.createElementNS('http://www.w3.org/2000/svg', 'svg'); defs.id = 'mingxi-filter-defs'; defs.innerHTML = `<defs><filter id="mingxi-daltonize-protanopia"><feColorMatrix type="matrix" values="0.567 0.433 0 0 0  0.558 0.442 0 0 0  0 0.242 0.758 0 0  0 0 0 1 0"/></filter><filter id="mingxi-daltonize-deuteranopia"><feColorMatrix type="matrix" values="0.625 0.375 0 0 0  0.7 0.3 0 0 0  0 0.3 0.7 0 0  0 0 0 1 0"/></filter><filter id="mingxi-daltonize-tritanopia"><feColorMatrix type="matrix" values="0.95 0.05 0 0 0  0 0.433 0.567 0 0  0 0.475 0.525 0 0  0 0 0 1 0"/></filter><filter id="mingxi-daltonize-contrast"><feComponentTransfer><feFuncR type="linear" slope="1.15"/><feFuncG type="linear" slope="1.15"/><feFuncB type="linear" slope="1.15"/></feComponentTransfer></filter></defs>`; document.documentElement.appendChild(defs); refresh().catch(() => {});
+const defs = document.createElementNS('http://www.w3.org/2000/svg', 'svg'); defs.id = 'mingxi-filter-defs'; defs.setAttribute('aria-hidden','true'); defs.style.cssText = 'position:fixed;top:0;left:0;width:0;height:0;pointer-events:none;'; defs.innerHTML = `<defs><filter id="mingxi-daltonize-protanopia"><feColorMatrix type="matrix" values="0.567 0.433 0 0 0  0.558 0.442 0 0 0  0 0.242 0.758 0 0  0 0 0 1 0"/></filter><filter id="mingxi-daltonize-deuteranopia"><feColorMatrix type="matrix" values="0.625 0.375 0 0 0  0.7 0.3 0 0 0  0 0.3 0.7 0 0  0 0 0 1 0"/></filter><filter id="mingxi-daltonize-tritanopia"><feColorMatrix type="matrix" values="0.95 0.05 0 0 0  0 0.433 0.567 0 0  0 0.475 0.525 0 0  0 0 0 1 0"/></filter><filter id="mingxi-daltonize-contrast"><feComponentTransfer><feFuncR type="linear" slope="1.15"/><feFuncG type="linear" slope="1.15"/><feFuncB type="linear" slope="1.15"/></feComponentTransfer></filter></defs>`; document.documentElement.appendChild(defs); refresh().catch(() => {});
 function enhanceAddedNodes(records) { if (!activeSettings?.enabled || activeSettings.excluded) return; records.forEach((record) => record.addedNodes.forEach((node) => { if (node.nodeType !== 1) return; const children = node.querySelectorAll ? [...node.querySelectorAll('canvas,svg[role="img"],[aria-label*="chart" i],[aria-label*="图表"]')] : []; const elements = [node, ...children]; elements.forEach((element) => { if (element.matches?.('canvas')) enhanceCanvases(activeSettings.mode); if (element.matches?.('svg[role="img"],[aria-label*="chart" i],[aria-label*="图表"]')) enhanceSvgChart(element); }); })); }
+// Keep the SVG filter definitions out of <html>'s layout tree. Some pages
+// otherwise reserve a small anonymous box before their actual content.
+setTimeout(() => { if (document.body && defs.parentElement !== document.body) document.body.appendChild(defs); }, 0);
 const observer = new MutationObserver((records) => {
   const styleNode = document.getElementById(STYLE_ID);
   if (styleNode && records.every((record) => record.target === styleNode)) return;
