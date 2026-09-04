@@ -9,4 +9,5 @@ div.ishihara.plate-three{color:#f2d44e;background-color:#416f9c;background-image
 .ishihara{display:block!important;width:145px!important;height:145px!important;background:#eef2ec!important}
 .attribution{margin:13px 0 0;color:#89938c;font-size:9px;line-height:1.5;text-align:center}.attribution a{color:#527363}
 .tools{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:12px}.tools button{padding:8px 4px;border:1px solid #cbd8cc;border-radius:6px;background:#fff;color:#214f3d;font-size:10px;cursor:pointer}.feedback small{font-size:9px;color:#89938c}
+.shortcut-button{width:100%;margin-top:8px;padding:7px;border:0;background:transparent;color:#728078;font-size:10px;cursor:pointer;text-decoration:underline}
 .feedback{display:grid;gap:6px;margin-top:18px;padding-top:14px;border-top:1px solid #e2e6df}.feedback strong{font-size:11px}.feedback span{font-size:9px;color:#89938c}.feedback button,.reset-button{padding:7px;border:1px solid #d3ddd4;border-radius:6px;background:#fff;color:#52645a;font-size:10px;cursor:pointer}.feedback button:disabled{color:#214f3d;background:#edf5ed}.reset-button{width:100%;margin-top:9px;color:#8b5a50}

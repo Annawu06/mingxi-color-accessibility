@@ -10,7 +10,7 @@
   },
   "commands": {
     "toggle-mingxi": {
-      "suggested_key": { "default": "Alt+Shift+C", "mac": "Command+Shift+C" },
+      "suggested_key": { "default": "Alt+Shift+S", "mac": "Command+Shift+S" },
       "description": "开关明晰色彩友好模式"
     },
     "open-mingxi-reader": {

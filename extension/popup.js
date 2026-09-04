@@ -60,6 +60,7 @@ document.querySelector('#probe').addEventListener('click', () => sendToolMessage
 document.querySelector('#reader').addEventListener('click', () => sendToolMessage('toggle-reader'));
 document.querySelector('#exclude').addEventListener('click', async () => { settings.excluded = !settings.excluded; settings.enabled = !settings.excluded; await apply(); document.querySelector('#exclude').textContent = settings.excluded ? '已排除本站' : '排除本站'; });
 async function sendToolMessage(type) { const [tab] = await chrome.tabs.query({ active:true, currentWindow:true }); if (tab?.id) chrome.tabs.sendMessage(tab.id, { type }).catch(() => {}); }
+document.querySelector('#shortcuts').addEventListener('click', () => chrome.tabs.create({ url:'chrome://extensions/shortcuts' }));
 
 document.querySelectorAll('[data-feedback]').forEach((button) => button.addEventListener('click', async () => {
   const key = `feedback:${siteKey}:${settings.mode}:${button.dataset.feedback}`;

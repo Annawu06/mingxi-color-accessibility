@@ -16,7 +16,7 @@
       </div>
       <label class="range-label" for="intensity"><span>滤镜强度</span><output id="intensityValue">75%</output></label><input id="intensity" type="range" min="0" max="100" step="5" value="75">
       <div class="checks"><label><input id="colorRemap" type="checkbox" checked> 颜色重映射（辅助）</label><label><input id="autoContrast" type="checkbox" checked> 自动提高文字对比度</label><label><input id="semanticHints" type="checkbox" checked> 增加图标和文字提示</label><label><input id="enhanceImages" type="checkbox" checked> 增强图片、图表和视频</label><label><input id="linkHints" type="checkbox" checked> 给链接增加下划线提示</label><label><input id="requiredHints" type="checkbox" checked> 给必填项增加文字提示</label></div>
-      <div class="tools"><button id="probe" type="button">色彩探针</button><button id="reader" type="button">黑白阅读</button><button id="exclude" type="button">排除本站</button></div>
+      <div class="tools"><button id="probe" type="button">色彩探针</button><button id="reader" type="button">黑白阅读</button><button id="exclude" type="button">排除本站</button></div><button class="shortcut-button" id="shortcuts" type="button">设置快捷键（Alt + Shift + S）</button>
       <button class="test-button" id="openTest" type="button">开始新手色觉自测 <span>→</span></button>
       <p class="hint">ⓘ 设置会按网站保存。自测仅用于推荐设置，不构成医学诊断。</p>
       <div class="feedback"><strong>完成任务后反馈</strong><span>你的反馈只保存在本机</span><button data-feedback="success">我能区分状态</button><button data-feedback="chart">我能读懂图表</button><button data-feedback="link">我能找到链接</button><small id="feedbackSummary">还没有记录</small></div>
