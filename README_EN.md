@@ -12,6 +12,7 @@ Mingxi helps people with color vision deficiency understand web content more cle
 - Underlined links plus chart and image enhancement
 - Per-site settings and adjustable filter intensity
 - A non-medical color-vision screening experience
+- Keyboard shortcuts: `Alt + Shift + S` toggles the mode; `Alt + Shift + R` opens reader mode
 
 ## Disclaimer
 
