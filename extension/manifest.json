@@ -1,0 +1,21 @@
+{
+  "manifest_version": 3,
+  "name": "明晰 · 色彩友好浏览",
+  "version": "0.1.0",
+  "description": "为色盲与色弱用户优化网页色彩和对比度。",
+  "permissions": ["storage", "activeTab", "scripting"],
+  "action": {
+    "default_title": "明晰：调整色彩体验",
+    "default_popup": "popup.html"
+  },
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content.js"],
+      "run_at": "document_start"
+    }
+  ]
+}

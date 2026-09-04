@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="一款为色盲、色弱用户设计的色彩友好浏览体验原型。" />
+    <title>明晰 · 色彩友好体验</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Noto+Sans+SC:wght@400;500;700;900&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <header class="site-header">
+      <a class="brand" href="#top" aria-label="明晰首页"><span class="brand-mark">◒</span><span>明晰</span></a>
+      <nav aria-label="主导航">
+        <a href="#why">为什么需要</a>
+        <a href="#preview">体验预览</a>
+        <a href="#principles">设计原则</a>
+      </nav>
+      <button class="mode-button" id="openPanel" type="button">调整体验 <span>↗</span></button>
+    </header>
+
+    <main id="top">
+      <section class="hero section-wrap">
+        <div class="hero-copy">
+          <p class="eyebrow"><span class="eyebrow-dot"></span>为每一种视觉，保留清晰</p>
+          <h1>看见信息，<em>不被颜色阻挡。</em></h1>
+          <p class="hero-text">明晰帮助色盲与色弱用户，把难以辨认的色彩重新变成易于理解的层次、文字与符号。</p>
+          <div class="hero-actions">
+            <button class="primary-button" id="heroToggle" type="button">开启色彩友好模式 <span>→</span></button>
+            <a class="text-link" href="#preview">先看看效果 <span>↓</span></a>
+          </div>
+          <div class="trust-row"><span>⌁</span> 不改变内容，只改善理解方式</div>
+        </div>
+        <div class="hero-art" aria-label="抽象的色彩友好视觉示意图">
+          <div class="orb orb-one"></div><div class="orb orb-two"></div><div class="orb orb-three"></div>
+          <div class="art-card card-top"><span class="mini-icon">▦</span><strong>层次清晰</strong><small>无需猜测颜色</small></div>
+          <div class="art-card card-bottom"><span class="check-icon">✓</span><strong>已优化</strong><small>对比度 7.2 : 1</small></div>
+          <div class="art-grid"><span></span><span></span><span></span><span></span><span></span><span></span></div>
+        </div>
+      </section>
+
+      <section class="stats section-wrap" id="why">
+        <div><strong>3 亿+</strong><span>全球色觉差异人群</span></div>
+        <div><strong>1 / 12</strong><span>男性中存在色觉差异</span></div>
+        <div><strong>100%</strong><span>信息都值得被看见</span></div>
+      </section>
+
+      <section class="preview section-wrap" id="preview">
+        <div class="section-heading"><div><p class="eyebrow">体验预览</p><h2>开启后，信息依然属于你。</h2></div><p>选择适合你的模式，立即查看页面如何改变。</p></div>
+        <div class="preview-shell">
+          <aside class="mode-list" aria-label="色觉模式选择">
+            <p class="mode-label">选择视觉模式</p>
+            <button class="mode-option active" data-mode="normal" type="button"><span class="mode-swatch normal-swatch"></span><span>标准模式</span><span class="option-check">✓</span></button>
+            <button class="mode-option" data-mode="protanopia" type="button"><span class="mode-swatch protanopia-swatch"></span><span>红色辨识优化</span></button>
+            <button class="mode-option" data-mode="deuteranopia" type="button"><span class="mode-swatch deuteranopia-swatch"></span><span>绿色辨识优化</span></button>
+            <button class="mode-option" data-mode="tritanopia" type="button"><span class="mode-swatch tritanopia-swatch"></span><span>蓝黄色辨识优化</span></button>
+            <button class="mode-option" data-mode="contrast" type="button"><span class="mode-swatch contrast-swatch"></span><span>高对比度模式</span></button>
+            <div class="panel-note">ⓘ 推荐先选择与你最接近的模式</div>
+          </aside>
+          <div class="data-preview">
+            <div class="data-top"><div><span class="tiny-label">本周概览</span><h3>你的专注时间</h3></div><button class="date-button" type="button">最近 7 天⌄</button></div>
+            <div class="chart" aria-label="周一至周日专注时间柱状图">
+              <div class="y-axis"><span>8h</span><span>6h</span><span>4h</span><span>2h</span><span>0h</span></div>
+              <div class="bars"><div class="bar-col"><i class="bar bar-a" style="height:48%"></i><b>一</b></div><div class="bar-col"><i class="bar bar-b" style="height:68%"></i><b>二</b></div><div class="bar-col"><i class="bar bar-c" style="height:39%"></i><b>三</b></div><div class="bar-col"><i class="bar bar-d" style="height:83%"></i><b>四</b></div><div class="bar-col"><i class="bar bar-a" style="height:61%"></i><b>五</b></div><div class="bar-col"><i class="bar bar-b" style="height:74%"></i><b>六</b></div><div class="bar-col"><i class="bar bar-c" style="height:91%"></i><b>日</b></div></div>
+            </div>
+            <div class="legend"><span><i class="legend-dot dot-focus"></i>深度专注</span><span><i class="legend-dot dot-rest"></i>轻度专注</span><span class="meaning">◆ 数据标签已启用</span></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="principles section-wrap" id="principles"><p class="eyebrow">我们的承诺</p><h2>颜色只是表达方式，<br />从来不该是唯一方式。</h2><div class="principle-grid"><article><span>01</span><h3>有意义的对比</h3><p>让前景与背景之间拥有足够清晰的明度差异。</p></article><article><span>02</span><h3>多一种提示</h3><p>用文字、图形和位置补充颜色传达的信息。</p></article><article><span>03</span><h3>交给用户选择</h3><p>每个人的视觉都不同，控制权应该回到用户手中。</p></article></div></section>
+    </main>
+
+    <div class="toast" id="toast" role="status" aria-live="polite">色彩友好模式已开启</div>
+    <script src="app.js"></script>
+  </body>
+</html>
