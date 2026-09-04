@@ -9,7 +9,8 @@ const enhanceImages = document.querySelector('#enhanceImages');
 const autoContrast = document.querySelector('#autoContrast');
 const linkHints = document.querySelector('#linkHints');
 const colorRemap = document.querySelector('#colorRemap');
-let settings = { enabled: false, mode: 'deuteranopia', intensity: 65, semanticHints: true, enhanceImages: true, autoContrast: true, chartHints: true, linkHints: true, colorRemap: true };
+const requiredHints = document.querySelector('#requiredHints');
+let settings = { enabled: false, mode: 'deuteranopia', intensity: 65, semanticHints: true, enhanceImages: true, autoContrast: true, chartHints: true, linkHints: true, requiredHints: true, colorRemap: true, excluded: false };
 let siteKey = 'global';
 
 async function getSite() {
@@ -28,7 +29,7 @@ function render() {
   modeButtons.forEach((button) => button.classList.toggle('active', button.dataset.mode === settings.mode));
   intensity.value = settings.intensity; intensityValue.textContent = `${settings.intensity}%`;
   semanticHints.checked = settings.semanticHints; enhanceImages.checked = settings.enhanceImages;
-  autoContrast.checked = settings.autoContrast; linkHints.checked = settings.linkHints; colorRemap.checked = settings.colorRemap !== false;
+  autoContrast.checked = settings.autoContrast; linkHints.checked = settings.linkHints; colorRemap.checked = settings.colorRemap !== false; requiredHints.checked = settings.requiredHints !== false;
 }
 
 async function apply() {
@@ -53,6 +54,12 @@ enhanceImages.addEventListener('change', () => { settings.enhanceImages = enhanc
 autoContrast.addEventListener('change', () => { settings.autoContrast = autoContrast.checked; apply(); });
 linkHints.addEventListener('change', () => { settings.linkHints = linkHints.checked; apply(); });
 colorRemap.addEventListener('change', () => { settings.colorRemap = colorRemap.checked; apply(); });
+requiredHints.addEventListener('change', () => { settings.requiredHints = requiredHints.checked; apply(); });
+
+document.querySelector('#probe').addEventListener('click', () => sendToolMessage('toggle-probe'));
+document.querySelector('#reader').addEventListener('click', () => sendToolMessage('toggle-reader'));
+document.querySelector('#exclude').addEventListener('click', async () => { settings.excluded = !settings.excluded; settings.enabled = !settings.excluded; await apply(); document.querySelector('#exclude').textContent = settings.excluded ? '已排除本站' : '排除本站'; });
+async function sendToolMessage(type) { const [tab] = await chrome.tabs.query({ active:true, currentWindow:true }); if (tab?.id) chrome.tabs.sendMessage(tab.id, { type }).catch(() => {}); }
 
 document.querySelectorAll('[data-feedback]').forEach((button) => button.addEventListener('click', async () => {
   const key = `feedback:${siteKey}:${settings.mode}:${button.dataset.feedback}`;
@@ -65,8 +72,13 @@ document.querySelector('#resetSite').addEventListener('click', async () => {
   if (siteKey !== 'global') await chrome.storage.sync.remove(siteKey);
   const feedbackKeys = ['success', 'chart', 'link'].map((kind) => `feedback:${siteKey}:${settings.mode}:${kind}`);
   await chrome.storage.local.remove(feedbackKeys);
-  settings = { enabled:false, mode:'deuteranopia', intensity:65, semanticHints:true, enhanceImages:true, autoContrast:true, chartHints:true, linkHints:true, colorRemap:true };
+  settings = { enabled:false, mode:'deuteranopia', intensity:65, semanticHints:true, enhanceImages:true, autoContrast:true, chartHints:true, linkHints:true, requiredHints:true, colorRemap:true, excluded:false };
   await apply();
+});
+document.querySelector('#dataTools').addEventListener('click', async () => {
+  const all = await chrome.storage.local.get(null); const feedback = Object.fromEntries(Object.entries(all).filter(([key]) => key.startsWith('feedback:')));
+  const blob = new Blob([JSON.stringify(feedback, null, 2)], { type:'application/json' }); const url = URL.createObjectURL(blob); const link = document.createElement('a'); link.href = url; link.download = 'mingxi-feedback.json'; link.click(); URL.revokeObjectURL(url);
+  if (confirm('反馈数据已导出。是否同时清除本机反馈记录？')) await chrome.storage.local.clear();
 });
 
 const testPanel = document.querySelector('#testPanel');

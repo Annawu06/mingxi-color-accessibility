@@ -8,6 +8,16 @@
     "default_title": "明晰：调整色彩体验",
     "default_popup": "popup.html"
   },
+  "commands": {
+    "toggle-mingxi": {
+      "suggested_key": { "default": "Alt+Shift+C", "mac": "Command+Shift+C" },
+      "description": "开关明晰色彩友好模式"
+    },
+    "open-mingxi-reader": {
+      "suggested_key": { "default": "Alt+Shift+R", "mac": "Command+Shift+R" },
+      "description": "打开明晰沉浸式阅读模式"
+    }
+  },
   "background": {
     "service_worker": "background.js"
   },
