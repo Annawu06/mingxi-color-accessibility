@@ -2,6 +2,8 @@
 
 [中文 README](README.md)
 
+[Privacy Policy](PRIVACY.md) · [English Store Listing](STORE_LISTING_EN.md)
+
 Mingxi helps people with color vision deficiency understand web content more clearly.
 
 ## Features

@@ -2,6 +2,8 @@
 
 [English README](README_EN.md)
 
+[隐私政策](PRIVACY.md) · [中文商店介绍](STORE_LISTING_ZH.md)
+
 帮助色盲和色弱用户更容易理解网页信息。
 
 ## 功能
