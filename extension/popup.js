@@ -17,7 +17,7 @@ async function getSite() {
   try { const url = new URL(tab.url); siteKey = `site:${url.hostname}`; siteName.textContent = url.hostname || '当前网站'; }
   catch { siteName.textContent = '当前页面（浏览器内置页不可修改）'; }
   const saved = await chrome.storage.sync.get({ global: settings, [siteKey]: null });
-  settings = saved[siteKey] || saved.global || settings;
+  settings = { ...settings, ...(saved[siteKey] || saved.global || {}) };
   render();
 }
 
@@ -52,6 +52,11 @@ document.querySelectorAll('[data-feedback]').forEach((button) => button.addEvent
   await chrome.storage.local.set({ [key]: saved[key] + 1 });
   button.textContent = '已记录 ✓'; button.disabled = true;
 }));
+document.querySelector('#resetSite').addEventListener('click', async () => {
+  if (siteKey !== 'global') await chrome.storage.sync.remove(siteKey);
+  settings = { enabled:false, mode:'deuteranopia', intensity:65, semanticHints:true, enhanceImages:true, autoContrast:true, chartHints:true, linkHints:true, colorRemap:true };
+  await apply();
+});
 
 const testPanel = document.querySelector('#testPanel');
 const testValues = [
