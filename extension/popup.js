@@ -4,13 +4,15 @@ const siteName = document.querySelector('#siteName');
 const modeButtons = document.querySelectorAll('[data-mode]');
 const intensity = document.querySelector('#intensity');
 const intensityValue = document.querySelector('#intensityValue');
+const fontScale = document.querySelector('#fontScale');
+const fontScaleValue = document.querySelector('#fontScaleValue');
 const semanticHints = document.querySelector('#semanticHints');
 const enhanceImages = document.querySelector('#enhanceImages');
 const autoContrast = document.querySelector('#autoContrast');
 const linkHints = document.querySelector('#linkHints');
 const colorRemap = document.querySelector('#colorRemap');
 const requiredHints = document.querySelector('#requiredHints');
-let settings = { enabled: false, mode: 'deuteranopia', intensity: 65, semanticHints: true, enhanceImages: true, autoContrast: true, chartHints: true, linkHints: true, requiredHints: true, colorRemap: true, excluded: false, customMappings: [] };
+let settings = { enabled: false, mode: 'deuteranopia', intensity: 65, fontScale: 100, semanticHints: true, enhanceImages: true, autoContrast: true, chartHints: true, linkHints: true, requiredHints: true, colorRemap: true, excluded: false, customMappings: [] };
 let siteKey = 'global';
 
 async function getSite() {
@@ -28,6 +30,7 @@ function render() {
   status.textContent = settings.enabled ? '当前网站已启用' : '当前网站未启用';
   modeButtons.forEach((button) => button.classList.toggle('active', button.dataset.mode === settings.mode));
   intensity.value = settings.intensity; intensityValue.textContent = `${settings.intensity}%`;
+  fontScale.value = settings.fontScale ?? 100; fontScaleValue.textContent = `${settings.fontScale ?? 100}%`;
   semanticHints.checked = settings.semanticHints; enhanceImages.checked = settings.enhanceImages;
   autoContrast.checked = settings.autoContrast; linkHints.checked = settings.linkHints; colorRemap.checked = settings.colorRemap !== false; requiredHints.checked = settings.requiredHints !== false;
   renderMappings();
@@ -50,6 +53,7 @@ async function renderFeedback() {
 enabledButton.addEventListener('click', () => { settings.enabled = !settings.enabled; apply(); });
 modeButtons.forEach((button) => button.addEventListener('click', () => { settings.mode = button.dataset.mode; settings.enabled = true; apply(); }));
 intensity.addEventListener('input', () => { settings.intensity = Number(intensity.value); intensityValue.textContent = `${settings.intensity}%`; apply(); });
+fontScale.addEventListener('input', () => { settings.fontScale = Number(fontScale.value); fontScaleValue.textContent = `${settings.fontScale}%`; apply(); });
 semanticHints.addEventListener('change', () => { settings.semanticHints = semanticHints.checked; apply(); });
 enhanceImages.addEventListener('change', () => { settings.enhanceImages = enhanceImages.checked; apply(); });
 autoContrast.addEventListener('change', () => { settings.autoContrast = autoContrast.checked; apply(); });
@@ -77,7 +81,7 @@ document.querySelector('#resetSite').addEventListener('click', async () => {
   if (siteKey !== 'global') await chrome.storage.sync.remove(siteKey);
   const feedbackKeys = ['success', 'chart', 'link'].map((kind) => `feedback:${siteKey}:${settings.mode}:${kind}`);
   await chrome.storage.local.remove(feedbackKeys);
-  settings = { enabled:false, mode:'deuteranopia', intensity:65, semanticHints:true, enhanceImages:true, autoContrast:true, chartHints:true, linkHints:true, requiredHints:true, colorRemap:true, excluded:false, customMappings:[] };
+  settings = { enabled:false, mode:'deuteranopia', intensity:65, fontScale:100, semanticHints:true, enhanceImages:true, autoContrast:true, chartHints:true, linkHints:true, requiredHints:true, colorRemap:true, excluded:false, customMappings:[] };
   await apply();
 });
 document.querySelector('#dataTools').addEventListener('click', async () => {
