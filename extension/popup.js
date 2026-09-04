@@ -12,7 +12,8 @@ const autoContrast = document.querySelector('#autoContrast');
 const linkHints = document.querySelector('#linkHints');
 const colorRemap = document.querySelector('#colorRemap');
 const requiredHints = document.querySelector('#requiredHints');
-let settings = { enabled: false, mode: 'deuteranopia', intensity: 65, fontScale: 100, semanticHints: true, enhanceImages: true, autoContrast: true, chartHints: true, linkHints: true, requiredHints: true, colorRemap: true, excluded: false, customMappings: [] };
+const focusHints = document.querySelector('#focusHints');
+let settings = { enabled: false, mode: 'deuteranopia', intensity: 65, fontScale: 100, focusHints: true, semanticHints: true, enhanceImages: true, autoContrast: true, chartHints: true, linkHints: true, requiredHints: true, colorRemap: true, excluded: false, customMappings: [] };
 let siteKey = 'global';
 
 async function getSite() {
@@ -33,11 +34,13 @@ function render() {
   fontScale.value = settings.fontScale ?? 100; fontScaleValue.textContent = `${settings.fontScale ?? 100}%`;
   semanticHints.checked = settings.semanticHints; enhanceImages.checked = settings.enhanceImages;
   autoContrast.checked = settings.autoContrast; linkHints.checked = settings.linkHints; colorRemap.checked = settings.colorRemap !== false; requiredHints.checked = settings.requiredHints !== false;
+  focusHints.checked = settings.focusHints !== false;
   renderMappings();
 }
 
 async function apply() {
   await chrome.storage.sync.set({ [siteKey]: settings, global: settings });
+  const usageKey = `usage:${siteKey}`; const usage = await chrome.storage.local.get({ [usageKey]: { lastUsed: 0, modes: {} } }); const record = usage[usageKey]; record.lastUsed = Date.now(); record.modes[settings.mode] = (record.modes[settings.mode] || 0) + 1; await chrome.storage.local.set({ [usageKey]: record });
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
   if (tab?.id) chrome.tabs.sendMessage(tab.id, { type: 'apply-settings', settings }).catch(() => {});
   render();
@@ -60,6 +63,15 @@ autoContrast.addEventListener('change', () => { settings.autoContrast = autoCont
 linkHints.addEventListener('change', () => { settings.linkHints = linkHints.checked; apply(); });
 colorRemap.addEventListener('change', () => { settings.colorRemap = colorRemap.checked; apply(); });
 requiredHints.addEventListener('change', () => { settings.requiredHints = requiredHints.checked; apply(); });
+focusHints.addEventListener('change', () => { settings.focusHints = focusHints.checked; apply(); });
+
+document.querySelector('#audit').addEventListener('click', async () => { const [tab] = await chrome.tabs.query({ active:true, currentWindow:true }); try { const report = await chrome.tabs.sendMessage(tab.id, { type:'run-audit' }); alert(`页面无障碍诊断\n\n扫描元素：${report.scanned}\n对比度不足：${report.contrast}\n可能仅靠颜色区分：${report.colorOnly}\n链接：${report.links}\n表单控件：${report.forms}\n\n这是启发式检查，不等同于 Lighthouse 或医学评估。`); } catch (_) { alert('当前页面不支持诊断，请刷新页面后重试。'); } });
+document.querySelector('#stats').addEventListener('click', async () => { const all = await chrome.storage.local.get(null); const records = Object.entries(all).filter(([key]) => key.startsWith('usage:site:')).map(([key, value]) => ({ host:key.slice(11), ...value })).sort((a,b) => b.lastUsed - a.lastUsed).slice(0,5); const modes = {}; records.forEach((record) => Object.entries(record.modes || {}).forEach(([mode,count]) => { modes[mode] = (modes[mode] || 0) + count; })); const top = Object.entries(modes).sort((a,b) => b[1]-a[1])[0]; alert(`使用统计\n\n最近使用的网站：\n${records.length ? records.map((r,i) => `${i+1}. ${r.host}`).join('\n') : '暂无记录'}\n\n最常用模式：${top ? `${top[0]}（${top[1]} 次）` : '暂无记录'}`); });
+
+function downloadJson(filename, value) { const blob = new Blob([JSON.stringify(value, null, 2)], { type:'application/json' }); const url = URL.createObjectURL(blob); const link = document.createElement('a'); link.href = url; link.download = filename; link.click(); setTimeout(() => URL.revokeObjectURL(url), 500); }
+document.querySelector('#settingsExport').addEventListener('click', async () => downloadJson('mingxi-settings.json', await chrome.storage.sync.get(null)));
+document.querySelector('#settingsImport').addEventListener('click', () => document.querySelector('#settingsFile').click());
+document.querySelector('#settingsFile').addEventListener('change', async (event) => { const file = event.target.files?.[0]; if (!file) return; try { const imported = JSON.parse(await file.text()); if (!imported || typeof imported !== 'object' || (!imported.global && !Object.keys(imported).some((key) => key.startsWith('site:')))) throw new Error('invalid'); await chrome.storage.sync.set(imported); await getSite(); alert('设置已导入。'); } catch (_) { alert('导入失败：请选择明晰导出的 JSON 设置文件。'); } event.target.value = ''; });
 
 function renderMappings() { const list = document.querySelector('#mappingList'); list.innerHTML = settings.customMappings?.length ? settings.customMappings.map((rule, index) => `<button data-remove-mapping="${index}" title="删除规则"><i style="background:${rule.from}"></i>${rule.from} → <i style="background:${rule.to}"></i>${rule.to} ×</button>`).join('') : '暂未添加规则'; list.querySelectorAll('[data-remove-mapping]').forEach((button) => button.addEventListener('click', () => { settings.customMappings.splice(Number(button.dataset.removeMapping), 1); apply(); })); }
 document.querySelector('#addMapping').addEventListener('click', () => { const rule = { from:document.querySelector('#mapFrom').value.toUpperCase(), to:document.querySelector('#mapTo').value.toUpperCase() }; settings.customMappings = [...(settings.customMappings || []).filter((item) => item.from !== rule.from), rule]; apply(); });
@@ -81,7 +93,7 @@ document.querySelector('#resetSite').addEventListener('click', async () => {
   if (siteKey !== 'global') await chrome.storage.sync.remove(siteKey);
   const feedbackKeys = ['success', 'chart', 'link'].map((kind) => `feedback:${siteKey}:${settings.mode}:${kind}`);
   await chrome.storage.local.remove(feedbackKeys);
-  settings = { enabled:false, mode:'deuteranopia', intensity:65, fontScale:100, semanticHints:true, enhanceImages:true, autoContrast:true, chartHints:true, linkHints:true, requiredHints:true, colorRemap:true, excluded:false, customMappings:[] };
+  settings = { enabled:false, mode:'deuteranopia', intensity:65, fontScale:100, focusHints:true, semanticHints:true, enhanceImages:true, autoContrast:true, chartHints:true, linkHints:true, requiredHints:true, colorRemap:true, excluded:false, customMappings:[] };
   await apply();
 });
 document.querySelector('#dataTools').addEventListener('click', async () => {

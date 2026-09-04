@@ -15,6 +15,10 @@ Mingxi helps people with color vision deficiency understand web content more cle
 - Per-site settings and adjustable filter intensity
 - A non-medical color-vision screening experience
 - Keyboard shortcuts: `Alt + Shift + S` toggles the mode; `Alt + Shift + R` opens reader mode
+- Heuristic accessibility diagnostics for the current page
+- Full JSON settings import/export and recent-use statistics
+- Form focus highlighting, context-menu contrast checks, and an extension badge status
+- Popup dark mode follows the system preference
 
 ## Disclaimer
 
