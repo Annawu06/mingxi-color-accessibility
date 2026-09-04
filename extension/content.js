@@ -2,6 +2,7 @@ const STYLE_ID = 'mingxi-color-friendly-style';
 let originalRootFilter;
 let hasCapturedRootFilter = false;
 let scanTimer;
+let observerTimer;
 
 const modeStyles = {
   protanopia: 'sepia(.18) saturate(1.18) hue-rotate(-12deg)',
@@ -75,4 +76,10 @@ function clearEnhancements() { markSemanticElements(false); clearContrastFixes()
 async function refresh() { const defaults = { enabled:false, mode:'deuteranopia', intensity:65, semanticHints:true, enhanceImages:true, autoContrast:true, chartHints:true, linkHints:true, colorRemap:true }; const siteKey = `site:${location.hostname}`; try { const saved = await chrome.storage.sync.get({ global:defaults, [siteKey]:null }); applySettings(saved[siteKey] || saved.global || defaults); } catch (error) { if (!String(error?.message || error).includes('Extension context invalidated')) console.warn('[明晰]', error); } }
 chrome.runtime.onMessage.addListener((message) => { if (message.type === 'apply-settings') applySettings(message.settings); if (message.type === 'refresh-settings') refresh().catch(() => {}); });
 const defs = document.createElementNS('http://www.w3.org/2000/svg', 'svg'); defs.id = 'mingxi-filter-defs'; defs.innerHTML = `<defs><filter id="mingxi-daltonize-protanopia"><feColorMatrix type="matrix" values="0.567 0.433 0 0 0  0.558 0.442 0 0 0  0 0.242 0.758 0 0  0 0 0 1 0"/></filter><filter id="mingxi-daltonize-deuteranopia"><feColorMatrix type="matrix" values="0.625 0.375 0 0 0  0.7 0.3 0 0 0  0 0.3 0.7 0 0  0 0 0 1 0"/></filter><filter id="mingxi-daltonize-tritanopia"><feColorMatrix type="matrix" values="0.95 0.05 0 0 0  0 0.433 0.567 0 0  0 0.475 0.525 0 0  0 0 0 1 0"/></filter><filter id="mingxi-daltonize-contrast"><feComponentTransfer><feFuncR type="linear" slope="1.15"/><feFuncG type="linear" slope="1.15"/><feFuncB type="linear" slope="1.15"/></feComponentTransfer></filter></defs>`; document.documentElement.appendChild(defs); refresh().catch(() => {});
-const observer = new MutationObserver((records) => { const styleNode = document.getElementById(STYLE_ID); if (styleNode && records.every((record) => record.target === styleNode)) return; refresh().catch(() => {}); }); observer.observe(document.documentElement, { childList:true, subtree:true });
+const observer = new MutationObserver((records) => {
+  const styleNode = document.getElementById(STYLE_ID);
+  if (styleNode && records.every((record) => record.target === styleNode)) return;
+  clearTimeout(observerTimer);
+  observerTimer = setTimeout(() => refresh().catch(() => {}), 450);
+});
+observer.observe(document.documentElement, { childList:true, subtree:true });

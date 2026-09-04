@@ -19,6 +19,7 @@ async function getSite() {
   const saved = await chrome.storage.sync.get({ global: settings, [siteKey]: null });
   settings = { ...settings, ...(saved[siteKey] || saved.global || {}) };
   render();
+  renderFeedback();
 }
 
 function render() {
@@ -37,6 +38,13 @@ async function apply() {
   render();
 }
 
+async function renderFeedback() {
+  const keys = ['success', 'chart', 'link'].map((kind) => `feedback:${siteKey}:${settings.mode}:${kind}`);
+  const saved = await chrome.storage.local.get(keys);
+  const total = keys.reduce((sum, key) => sum + Number(saved[key] || 0), 0);
+  document.querySelector('#feedbackSummary').textContent = total ? `本网站此模式已记录 ${total} 次完成反馈` : '还没有记录';
+}
+
 enabledButton.addEventListener('click', () => { settings.enabled = !settings.enabled; apply(); });
 modeButtons.forEach((button) => button.addEventListener('click', () => { settings.mode = button.dataset.mode; settings.enabled = true; apply(); }));
 intensity.addEventListener('input', () => { settings.intensity = Number(intensity.value); intensityValue.textContent = `${settings.intensity}%`; apply(); });
@@ -51,9 +59,12 @@ document.querySelectorAll('[data-feedback]').forEach((button) => button.addEvent
   const saved = await chrome.storage.local.get({ [key]: 0 });
   await chrome.storage.local.set({ [key]: saved[key] + 1 });
   button.textContent = '已记录 ✓'; button.disabled = true;
+  renderFeedback();
 }));
 document.querySelector('#resetSite').addEventListener('click', async () => {
   if (siteKey !== 'global') await chrome.storage.sync.remove(siteKey);
+  const feedbackKeys = ['success', 'chart', 'link'].map((kind) => `feedback:${siteKey}:${settings.mode}:${kind}`);
+  await chrome.storage.local.remove(feedbackKeys);
   settings = { enabled:false, mode:'deuteranopia', intensity:65, semanticHints:true, enhanceImages:true, autoContrast:true, chartHints:true, linkHints:true, colorRemap:true };
   await apply();
 });
