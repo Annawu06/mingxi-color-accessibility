@@ -13,16 +13,16 @@ Mingxi helps people with color vision deficiency understand web content more cle
 - Text and icon cues for success, warning, and error states
 - Underlined links plus chart and image enhancement
 - Per-site settings and adjustable filter intensity
-- A non-medical color-vision screening experience
+- A non-standardized color-pattern recognition demo
 - Keyboard shortcuts: `Alt + Shift + S` toggles the mode; `Alt + Shift + R` opens reader mode
-- Heuristic accessibility diagnostics for the current page
+- Heuristic AA/AAA text contrast diagnostics with one-click enhancement and JSON report export
 - Full JSON settings import/export and recent-use statistics
 - Form focus highlighting, context-menu contrast checks, and an extension badge status
 - Popup dark mode follows the system preference
 
 ## Disclaimer
 
-Mingxi is an accessibility aid, not a medical diagnostic or treatment tool. The current color-vision test is for non-medical screening only.
+Mingxi is an accessibility aid, not a medical diagnostic or treatment tool. The color-pattern demo cannot identify a color-vision condition or determine the best mode, and has no medical screening validity. Color presets are visual adjustments to compare by personal preference; they have not been clinically validated.
 
 ## Install locally
 

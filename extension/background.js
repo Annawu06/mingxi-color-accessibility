@@ -1,8 +1,13 @@
+importScripts('core/settings.js');
 function createContextMenus() { chrome.contextMenus.removeAll().then(() => chrome.contextMenus.create({ id:'mingxi-inspect', title:'明晰：检查当前元素对比度', contexts:['page','selection','image'] })).catch(() => {}); }
-chrome.runtime.onInstalled.addListener(() => {
+chrome.runtime.onInstalled.addListener(({ reason }) => {
   createContextMenus();
-  chrome.storage.sync.set({ global: { enabled: false, mode: 'deuteranopia', intensity: 65, fontScale:100, focusHints:true, semanticHints: true, enhanceImages: true, autoContrast: true, chartHints: true, linkHints: true, colorRemap: true, readerMode: false } });
-  chrome.tabs.create({ url: chrome.runtime.getURL('onboarding.html') });
+  if (reason === 'install') {
+    chrome.storage.sync.get('global').then((saved) => {
+      if (!saved.global) chrome.storage.sync.set({ global: MingxiSettings.defaults });
+    });
+    chrome.tabs.create({ url: chrome.runtime.getURL('onboarding.html') });
+  }
 });
 chrome.runtime.onStartup.addListener(createContextMenus);
 
@@ -21,7 +26,7 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo) => {
 chrome.tabs.onActivated.addListener(({ tabId }) => updateBadge(tabId));
 chrome.tabs.onUpdated.addListener((tabId) => updateBadge(tabId));
 chrome.storage.onChanged.addListener(async () => { const tabs = await chrome.tabs.query({}); tabs.forEach((tab) => { if (tab.id) updateBadge(tab.id); }); });
-async function updateBadge(tabId) { try { const tab = await chrome.tabs.get(tabId); const host = new URL(tab.url).hostname; const key = `site:${host}`; const saved = await chrome.storage.sync.get({ global:{}, [key]:null }); const settings = saved[key] || saved.global || {}; chrome.action.setBadgeText({ tabId, text:settings.enabled && !settings.excluded ? '✓' : '' }); chrome.action.setBadgeBackgroundColor({ tabId, color:'#16704a' }); } catch (_) {} }
+async function updateBadge(tabId) { try { const tab = await chrome.tabs.get(tabId); const host = new URL(tab.url).hostname; const key = `site:${host}`; const saved = await chrome.storage.sync.get({ global:{}, [key]:null }); const settings = MingxiSettings.effective(saved.global, saved[key]); chrome.action.setBadgeText({ tabId, text:settings.enabled && !settings.excluded ? '✓' : '' }); chrome.action.setBadgeBackgroundColor({ tabId, color:'#16704a' }); } catch (_) {} }
 
 async function sendToActiveTab(message) {
   const [tab] = await chrome.tabs.query({ active: true, lastFocusedWindow: true });

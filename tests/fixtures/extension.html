@@ -1,0 +1,39 @@
+<!doctype html>
+<html><head><meta charset="utf-8"></head><body>
+  <svg id="recognized" role="img" viewBox="0 0 100 50">
+    <rect id="axis" x="0" y="40" width="100" height="1" fill="black"/>
+    <rect data-series="apples" x="10" y="10" width="15" height="30" fill="red"/>
+    <rect data-series="oranges" x="35" y="20" width="15" height="20" fill="green"/>
+  </svg>
+  <svg id="unknown" role="img" viewBox="0 0 100 50"><rect x="10" y="10" width="10" height="20" fill="red"/><rect x="30" y="10" width="10" height="20" fill="green"/></svg>
+  <div style="background-color:black"><span id="alpha" style="background-color:rgba(255,255,255,.5);color:white">Transparent background</span></div>
+  <script>
+    chrome.storage = { sync: { get: async () => ({ global: { enabled: false } }) } };
+    chrome.runtime = { onMessage: { addListener() {} } };
+  </script>
+  <script src="../../extension/core/settings.js"></script>
+  <script src="../../extension/core/contrast.js"></script>
+  <script src="../../extension/content.js"></script>
+  <script>
+    setTimeout(async () => {
+      try {
+        const recognized = document.querySelector('#recognized');
+        const unknown = document.querySelector('#unknown');
+        const original = recognized.innerHTML;
+        const unknownOriginal = unknown.innerHTML;
+        const bg = backgroundFor(document.querySelector('#alpha'));
+        if (Math.abs(bg[0] - 127.5) > 0.1) throw new Error(`Alpha composite: ${bg}`);
+        applySettings(MingxiSettings.effective({ enabled: true, chartHints: true, autoContrast: true, colorRemap: false }));
+        if (!recognized.querySelector('[data-mingxi-generated]')) throw new Error('Recognized chart was not enhanced');
+        if (unknown.innerHTML !== unknownOriginal) throw new Error('Unknown chart was modified');
+        await new Promise((resolve) => setTimeout(resolve, 300));
+        applySettings(MingxiSettings.effective());
+        if (recognized.innerHTML !== original) throw new Error('SVG did not restore');
+        if (document.querySelector('#alpha').hasAttribute('data-mingxi-contrast-fix')) throw new Error('Contrast fix did not restore');
+        document.body.dataset.testStatus = 'pass';
+      } catch (error) {
+        document.body.dataset.testStatus = `fail: ${error.message}`;
+      }
+    }, 30);
+  </script>
+</body></html>

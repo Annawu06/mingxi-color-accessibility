@@ -13,15 +13,15 @@ const linkHints = document.querySelector('#linkHints');
 const colorRemap = document.querySelector('#colorRemap');
 const requiredHints = document.querySelector('#requiredHints');
 const focusHints = document.querySelector('#focusHints');
-let settings = { enabled: false, mode: 'deuteranopia', intensity: 65, fontScale: 100, focusHints: true, semanticHints: true, enhanceImages: true, autoContrast: true, chartHints: true, linkHints: true, requiredHints: true, colorRemap: true, excluded: false, customMappings: [] };
+let settings = MingxiSettings.effective();
 let siteKey = 'global';
 
 async function getSite() {
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
   try { const url = new URL(tab.url); siteKey = `site:${url.hostname}`; siteName.textContent = url.hostname || '当前网站'; }
   catch { siteName.textContent = '当前页面（浏览器内置页不可修改）'; }
-  const saved = await chrome.storage.sync.get({ global: settings, [siteKey]: null });
-  settings = { ...settings, ...(saved[siteKey] || saved.global || {}) };
+  const saved = await chrome.storage.sync.get({ global: {}, [siteKey]: null });
+  settings = MingxiSettings.effective(saved.global, siteKey === 'global' ? null : saved[siteKey]);
   render();
   renderFeedback();
 }
@@ -39,7 +39,15 @@ function render() {
 }
 
 async function apply() {
-  await chrome.storage.sync.set({ [siteKey]: settings, global: settings });
+  const valid = MingxiSettings.validate(settings);
+  if (siteKey === 'global') await chrome.storage.sync.set({ global: valid });
+  else {
+    const saved = await chrome.storage.sync.get({ global: {} });
+    const baseline = MingxiSettings.effective(saved.global);
+    const override = Object.fromEntries(Object.entries(valid).filter(([key, value]) => JSON.stringify(value) !== JSON.stringify(baseline[key])));
+    if (Object.keys(override).length) await chrome.storage.sync.set({ [siteKey]: override });
+    else await chrome.storage.sync.remove(siteKey);
+  }
   const usageKey = `usage:${siteKey}`; const usage = await chrome.storage.local.get({ [usageKey]: { lastUsed: 0, modes: {} } }); const record = usage[usageKey]; record.lastUsed = Date.now(); record.modes[settings.mode] = (record.modes[settings.mode] || 0) + 1; await chrome.storage.local.set({ [usageKey]: record });
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
   if (tab?.id) chrome.tabs.sendMessage(tab.id, { type: 'apply-settings', settings }).catch(() => {});
@@ -55,8 +63,10 @@ async function renderFeedback() {
 
 enabledButton.addEventListener('click', () => { settings.enabled = !settings.enabled; apply(); });
 modeButtons.forEach((button) => button.addEventListener('click', () => { settings.mode = button.dataset.mode; settings.enabled = true; apply(); }));
-intensity.addEventListener('input', () => { settings.intensity = Number(intensity.value); intensityValue.textContent = `${settings.intensity}%`; apply(); });
-fontScale.addEventListener('input', () => { settings.fontScale = Number(fontScale.value); fontScaleValue.textContent = `${settings.fontScale}%`; apply(); });
+intensity.addEventListener('input', () => { intensityValue.textContent = `${intensity.value}%`; });
+intensity.addEventListener('change', () => { settings.intensity = Number(intensity.value); apply(); });
+fontScale.addEventListener('input', () => { fontScaleValue.textContent = `${fontScale.value}%`; });
+fontScale.addEventListener('change', () => { settings.fontScale = Number(fontScale.value); apply(); });
 semanticHints.addEventListener('change', () => { settings.semanticHints = semanticHints.checked; apply(); });
 enhanceImages.addEventListener('change', () => { settings.enhanceImages = enhanceImages.checked; apply(); });
 autoContrast.addEventListener('change', () => { settings.autoContrast = autoContrast.checked; apply(); });
@@ -65,16 +75,58 @@ colorRemap.addEventListener('change', () => { settings.colorRemap = colorRemap.c
 requiredHints.addEventListener('change', () => { settings.requiredHints = requiredHints.checked; apply(); });
 focusHints.addEventListener('change', () => { settings.focusHints = focusHints.checked; apply(); });
 
-document.querySelector('#audit').addEventListener('click', async () => { const [tab] = await chrome.tabs.query({ active:true, currentWindow:true }); try { const report = await chrome.tabs.sendMessage(tab.id, { type:'run-audit' }); alert(`页面无障碍诊断\n\n扫描元素：${report.scanned}\n对比度不足：${report.contrast}\n可能仅靠颜色区分：${report.colorOnly}\n链接：${report.links}\n表单控件：${report.forms}\n\n这是启发式检查，不等同于 Lighthouse 或医学评估。`); } catch (_) { alert('当前页面不支持诊断，请刷新页面后重试。'); } });
+let latestAudit = null;
+document.querySelector('#audit').addEventListener('click', async () => {
+  const panel = document.querySelector('#auditResults');
+  const summary = document.querySelector('#auditSummary');
+  const examples = document.querySelector('#auditExamples');
+  panel.hidden = false;
+  latestAudit = null;
+  summary.textContent = '正在检查…';
+  examples.replaceChildren();
+  const [tab] = await chrome.tabs.query({ active:true, currentWindow:true });
+  try {
+    const report = await chrome.tabs.sendMessage(tab.id, { type:'run-audit' });
+    if (report.error) throw new Error(report.error);
+    latestAudit = report;
+    summary.textContent = `扫描元素 ${report.scanned} 个；检查文字 ${report.checked} 处；无法可靠判断 ${report.skipped} 处；未达 WCAG AA：${report.aa} 处；未达 AAA：${report.aaa} 处；可能仅靠颜色区分：${report.colorOnly} 处。${report.issuesOmitted ? `报告省略 ${report.issuesOmitted} 项。` : ''}`;
+    for (const item of report.examples) {
+      const li = document.createElement('li');
+      li.textContent = `“${item.text}” ${item.ratio}:1`;
+      examples.appendChild(li);
+    }
+    document.querySelector('#fixContrast').hidden = report.aa === 0;
+  } catch (_) { summary.textContent = '当前页面不支持诊断，请刷新页面后重试。'; document.querySelector('#fixContrast').hidden = true; }
+});
+document.querySelector('#auditExport').addEventListener('click', () => { if (latestAudit) downloadJson('mingxi-audit.json', latestAudit); });
+document.querySelector('#fixContrast').addEventListener('click', async () => {
+  settings.enabled = true;
+  settings.autoContrast = true;
+  await apply();
+  document.querySelector('#fixContrast').textContent = '已启用自动增强';
+});
 document.querySelector('#stats').addEventListener('click', async () => { const all = await chrome.storage.local.get(null); const records = Object.entries(all).filter(([key]) => key.startsWith('usage:site:')).map(([key, value]) => ({ host:key.slice(11), ...value })).sort((a,b) => b.lastUsed - a.lastUsed).slice(0,5); const modes = {}; records.forEach((record) => Object.entries(record.modes || {}).forEach(([mode,count]) => { modes[mode] = (modes[mode] || 0) + count; })); const top = Object.entries(modes).sort((a,b) => b[1]-a[1])[0]; alert(`使用统计\n\n最近使用的网站：\n${records.length ? records.map((r,i) => `${i+1}. ${r.host}`).join('\n') : '暂无记录'}\n\n最常用模式：${top ? `${top[0]}（${top[1]} 次）` : '暂无记录'}`); });
 
 function downloadJson(filename, value) { const blob = new Blob([JSON.stringify(value, null, 2)], { type:'application/json' }); const url = URL.createObjectURL(blob); const link = document.createElement('a'); link.href = url; link.download = filename; link.click(); setTimeout(() => URL.revokeObjectURL(url), 500); }
-document.querySelector('#settingsExport').addEventListener('click', async () => downloadJson('mingxi-settings.json', await chrome.storage.sync.get(null)));
+document.querySelector('#settingsExport').addEventListener('click', async () => { const all = await chrome.storage.sync.get(null); const clean = Object.fromEntries(Object.entries(all).filter(([key]) => key === 'global' || key.startsWith('site:')).map(([key, value]) => [key, MingxiSettings.stored(value)])); downloadJson('mingxi-settings.json', clean); });
 document.querySelector('#settingsImport').addEventListener('click', () => document.querySelector('#settingsFile').click());
-document.querySelector('#settingsFile').addEventListener('change', async (event) => { const file = event.target.files?.[0]; if (!file) return; try { const imported = JSON.parse(await file.text()); if (!imported || typeof imported !== 'object' || (!imported.global && !Object.keys(imported).some((key) => key.startsWith('site:')))) throw new Error('invalid'); await chrome.storage.sync.set(imported); await getSite(); alert('设置已导入。'); } catch (_) { alert('导入失败：请选择明晰导出的 JSON 设置文件。'); } event.target.value = ''; });
+document.querySelector('#settingsFile').addEventListener('change', async (event) => { const file = event.target.files?.[0]; if (!file) return; try { if (file.size > 1000000) throw new Error('File too large'); const imported = MingxiSettings.validateImport(JSON.parse(await file.text())); await chrome.storage.sync.set(imported); await getSite(); alert('设置已导入。'); } catch (_) { alert('导入失败：设置文件包含无效字段或颜色规则。'); } event.target.value = ''; });
 
-function renderMappings() { const list = document.querySelector('#mappingList'); list.innerHTML = settings.customMappings?.length ? settings.customMappings.map((rule, index) => `<button data-remove-mapping="${index}" title="删除规则"><i style="background:${rule.from}"></i>${rule.from} → <i style="background:${rule.to}"></i>${rule.to} ×</button>`).join('') : '暂未添加规则'; list.querySelectorAll('[data-remove-mapping]').forEach((button) => button.addEventListener('click', () => { settings.customMappings.splice(Number(button.dataset.removeMapping), 1); apply(); })); }
-document.querySelector('#addMapping').addEventListener('click', () => { const rule = { from:document.querySelector('#mapFrom').value.toUpperCase(), to:document.querySelector('#mapTo').value.toUpperCase() }; settings.customMappings = [...(settings.customMappings || []).filter((item) => item.from !== rule.from), rule]; apply(); });
+function renderMappings() {
+  const list = document.querySelector('#mappingList');
+  list.replaceChildren();
+  if (!settings.customMappings.length) { list.textContent = '暂未添加规则'; return; }
+  settings.customMappings.forEach((rule, index) => {
+    const button = document.createElement('button');
+    button.type = 'button'; button.title = '删除规则';
+    const from = document.createElement('i'); from.style.backgroundColor = rule.from;
+    const to = document.createElement('i'); to.style.backgroundColor = rule.to;
+    button.append(from, document.createTextNode(`${rule.from} → `), to, document.createTextNode(`${rule.to} ×`));
+    button.addEventListener('click', () => { settings.customMappings.splice(index, 1); apply(); });
+    list.appendChild(button);
+  });
+}
+document.querySelector('#addMapping').addEventListener('click', () => { const rule = { from:document.querySelector('#mapFrom').value.toUpperCase(), to:document.querySelector('#mapTo').value.toUpperCase() }; const next = [...settings.customMappings.filter((item) => item.from !== rule.from), rule]; if (next.length > 20) { alert('最多添加 20 条颜色映射。'); return; } settings.customMappings = next; apply(); });
 
 document.querySelector('#probe').addEventListener('click', () => sendToolMessage('toggle-probe'));
 document.querySelector('#reader').addEventListener('click', () => sendToolMessage('toggle-reader'));
@@ -90,16 +142,17 @@ document.querySelectorAll('[data-feedback]').forEach((button) => button.addEvent
   renderFeedback();
 }));
 document.querySelector('#resetSite').addEventListener('click', async () => {
-  if (siteKey !== 'global') await chrome.storage.sync.remove(siteKey);
+  await chrome.storage.sync.remove(siteKey);
   const feedbackKeys = ['success', 'chart', 'link'].map((kind) => `feedback:${siteKey}:${settings.mode}:${kind}`);
   await chrome.storage.local.remove(feedbackKeys);
-  settings = { enabled:false, mode:'deuteranopia', intensity:65, fontScale:100, focusHints:true, semanticHints:true, enhanceImages:true, autoContrast:true, chartHints:true, linkHints:true, requiredHints:true, colorRemap:true, excluded:false, customMappings:[] };
-  await apply();
+  await getSite();
+  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+  if (tab?.id) chrome.tabs.sendMessage(tab.id, { type: 'refresh-settings' }).catch(() => {});
 });
 document.querySelector('#dataTools').addEventListener('click', async () => {
   const all = await chrome.storage.local.get(null); const feedback = Object.fromEntries(Object.entries(all).filter(([key]) => key.startsWith('feedback:')));
   const blob = new Blob([JSON.stringify(feedback, null, 2)], { type:'application/json' }); const url = URL.createObjectURL(blob); const link = document.createElement('a'); link.href = url; link.download = 'mingxi-feedback.json'; link.click(); URL.revokeObjectURL(url);
-  if (confirm('反馈数据已导出。是否同时清除本机反馈记录？')) await chrome.storage.local.clear();
+  if (confirm('反馈数据已导出。是否同时清除本机反馈记录？')) await chrome.storage.local.remove(Object.keys(feedback));
 });
 
 const testPanel = document.querySelector('#testPanel');
@@ -120,7 +173,7 @@ function drawPlate(test) {
 }
 function nextTest(saw) {
   if (!saw) misses += 1; testIndex += 1;
-  if (testIndex >= testValues.length) { document.querySelector('#questionNo').textContent = '完成'; document.querySelector('#ishihara').textContent = '✓'; document.querySelector('.test-actions').hidden = true; document.querySelector('#testResult').textContent = misses ? '建议先尝试绿色辨识优化，也可以逐一体验其他模式。' : '结果没有显示出明显的辨识困难，仍可按舒适度选择模式。'; return; }
+  if (testIndex >= testValues.length) { document.querySelector('#questionNo').textContent = '完成'; document.querySelector('#ishihara').textContent = '✓'; document.querySelector('.test-actions').hidden = true; document.querySelector('#testResult').textContent = misses ? '这组演示图有难以辨认之处。请逐一比较各模式，按实际舒适度选择。' : '这组演示图已完成。请按实际舒适度选择模式。'; return; }
   const test = testValues[testIndex];
   document.querySelector('#questionNo').textContent = `${testIndex + 1} / 3`;
   document.querySelector('#testQuestion').textContent = test.question;

@@ -15,8 +15,8 @@ Mingxi helps people with color vision deficiency understand web content more cle
 
 ## Privacy
 
-Preferences and feedback are stored locally by default. Mingxi does not upload page content or call an AI service by default.
+Preferences use browser sync storage and may sync across devices when browser sync is enabled. Feedback and usage counts stay local. Mingxi does not upload page content or call an AI service by default.
 
 ## Important note
 
-Mingxi is an accessibility aid, not a medical diagnostic or treatment tool. The color-vision test is for non-medical screening only.
+Mingxi is an accessibility aid, not a medical diagnostic or treatment tool. The color-pattern demo is not a standardized test and has no medical screening validity.

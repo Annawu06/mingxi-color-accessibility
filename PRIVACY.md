@@ -1,13 +1,14 @@
 # Mingxi 明晰 Privacy Policy
 
-Last updated: 2026-09-04
+Last updated: 2026-11-01
 
 Mingxi is a browser accessibility aid. It does not upload, analyze, or sell browsing content.
 
 ## Data stored
 
-- Per-site preferences are stored in Chrome/Edge extension storage so the selected mode can be restored.
+- Global and per-site preferences use `chrome.storage.sync`; the browser may sync them across devices when browser sync is enabled.
 - Optional task feedback is stored locally in the browser only.
+- Usage counts are stored locally in the browser only.
 - Exported feedback is created locally as a JSON file when the user requests it.
 
 ## Data not collected
@@ -16,7 +17,7 @@ Mingxi does not collect browsing history, page text, screenshots, images, video,
 
 ## Permissions
 
-The extension needs storage for preferences, active-page access to apply accessibility changes, and scripting/content access to enhance the current webpage. Browser-internal pages remain protected by the browser.
+The extension needs storage for preferences, active-page access for popup actions, context menus, and a content script to enhance webpages. Browser-internal pages remain protected by the browser.
 
 ## Contact
 
