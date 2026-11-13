@@ -117,6 +117,8 @@ test('browser restores SVG and contrast changes', (t) => {
   ], { encoding: 'utf8', timeout: 15000 });
   if (chrome.error?.code === 'ENOENT') { if (process.env.CI) assert.fail('Google Chrome is required in CI'); t.skip('Google Chrome is unavailable'); return; }
   if (chrome.signal && chrome.stderr.includes('Operation not permitted')) { if (process.env.CI) assert.fail('Chrome is blocked in CI'); t.skip('Chrome is blocked by this sandbox'); return; }
+  if (chrome.error) assert.fail(`Chrome failed: ${chrome.error.message}\n${chrome.stderr.slice(-1000)}`);
   assert.equal(chrome.status, 0, chrome.stderr.slice(-1000));
-  assert.match(chrome.stdout, /data-test-status="pass"/, chrome.stdout.slice(-1000));
+  const result = chrome.stdout.match(/<body[^>]*data-test-status="([^"]*)"/)?.[1];
+  assert.equal(result, 'pass', `Browser fixture: ${result || 'no result'}\n${chrome.stderr.slice(-1000)}`);
 });
