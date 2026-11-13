@@ -7,6 +7,7 @@ const intensityValue = document.querySelector('#intensityValue');
 const fontScale = document.querySelector('#fontScale');
 const fontScaleValue = document.querySelector('#fontScaleValue');
 const semanticHints = document.querySelector('#semanticHints');
+const chartHints = document.querySelector('#chartHints');
 const enhanceImages = document.querySelector('#enhanceImages');
 const autoContrast = document.querySelector('#autoContrast');
 const linkHints = document.querySelector('#linkHints');
@@ -32,7 +33,7 @@ function render() {
   modeButtons.forEach((button) => button.classList.toggle('active', button.dataset.mode === settings.mode));
   intensity.value = settings.intensity; intensityValue.textContent = `${settings.intensity}%`;
   fontScale.value = settings.fontScale ?? 100; fontScaleValue.textContent = `${settings.fontScale ?? 100}%`;
-  semanticHints.checked = settings.semanticHints; enhanceImages.checked = settings.enhanceImages;
+  semanticHints.checked = settings.semanticHints; chartHints.checked = settings.chartHints; enhanceImages.checked = settings.enhanceImages;
   autoContrast.checked = settings.autoContrast; linkHints.checked = settings.linkHints; colorRemap.checked = settings.colorRemap !== false; requiredHints.checked = settings.requiredHints !== false;
   focusHints.checked = settings.focusHints !== false;
   renderMappings();
@@ -68,6 +69,7 @@ intensity.addEventListener('change', () => { settings.intensity = Number(intensi
 fontScale.addEventListener('input', () => { fontScaleValue.textContent = `${fontScale.value}%`; });
 fontScale.addEventListener('change', () => { settings.fontScale = Number(fontScale.value); apply(); });
 semanticHints.addEventListener('change', () => { settings.semanticHints = semanticHints.checked; apply(); });
+chartHints.addEventListener('change', () => { settings.chartHints = chartHints.checked; apply(); });
 enhanceImages.addEventListener('change', () => { settings.enhanceImages = enhanceImages.checked; apply(); });
 autoContrast.addEventListener('change', () => { settings.autoContrast = autoContrast.checked; apply(); });
 linkHints.addEventListener('change', () => { settings.linkHints = linkHints.checked; apply(); });
@@ -83,12 +85,15 @@ document.querySelector('#audit').addEventListener('click', async () => {
   panel.hidden = false;
   latestAudit = null;
   summary.textContent = '正在检查…';
+  document.querySelector('#auditChartSummary').textContent = '';
   examples.replaceChildren();
   const [tab] = await chrome.tabs.query({ active:true, currentWindow:true });
   try {
     const report = await chrome.tabs.sendMessage(tab.id, { type:'run-audit' });
     if (report.error) throw new Error(report.error);
     latestAudit = report;
+    const charts = report.chartSupport;
+    document.querySelector('#auditChartSummary').textContent = `${charts.enabled ? '图表提示已开启' : '图表提示未开启'}；SVG 候选 ${charts.svgCandidates} 个，已增强 ${charts.svgEnhanced} 个；Canvas ${charts.canvasTotal} 个，已增强 ${charts.canvasEnhanced} 个；状态候选 ${charts.statusCandidates} 个，已加提示 ${charts.statusEnhanced} 个。未识别 Canvas 的位置见导出报告。`;
     summary.textContent = `扫描元素 ${report.scanned} 个；检查文字 ${report.checked} 处；无法可靠判断 ${report.skipped} 处；未达 WCAG AA：${report.aa} 处；未达 AAA：${report.aaa} 处；可能仅靠颜色区分：${report.colorOnly} 处。${report.issuesOmitted ? `报告省略 ${report.issuesOmitted} 项。` : ''}`;
     for (const item of report.examples) {
       const li = document.createElement('li');

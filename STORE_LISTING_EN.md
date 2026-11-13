@@ -10,7 +10,7 @@ Mingxi helps people with color vision deficiency understand web content more cle
 - Red, green, and blue-yellow color assistance
 - Automatic improvement for selected low-contrast text
 - Non-color cues for success, warning, error, and required fields
-- Enhancement for images, Canvas, SVG, and video
+- Non-color cues for supported inline SVG and Chart.js Canvas bar and line charts; display enhancement for images, other Canvas content, and video
 - Color probe, site exclusion, keyboard shortcuts, and local feedback controls
 
 ## Privacy
@@ -20,3 +20,5 @@ Preferences use browser sync storage and may sync across devices when browser sy
 ## Important note
 
 Mingxi is an accessibility aid, not a medical diagnostic or treatment tool. The color-pattern demo is not a standardized test and has no medical screening validity.
+
+See `docs/support-matrix.md` in the repository for supported chart and image types. Not every Canvas or bitmap chart can be parsed.

@@ -33,6 +33,55 @@ test('translucent backgrounds are composited', () => {
   assert(Math.abs(result[0] - 127.5) < 0.1);
 });
 
+test('Chart.js canvas exposes data and adds reversible patterns', () => {
+  const listeners = {};
+  let plugin;
+  let inserted;
+  let strokes = 0;
+  let redraws = 0;
+  let secondSeriesVisible = true;
+  const element = () => ({
+    children: [], dataset: {},
+    appendChild(child) { this.children.push(child); },
+    replaceChildren(...children) { this.children = children; },
+    remove() { this.removed = true; }
+  });
+  const canvas = { isConnected: true, after(node) { inserted = node; node.previousElementSibling = canvas; } };
+  const ctx = Object.fromEntries(['save', 'restore', 'beginPath', 'rect', 'clip', 'moveTo', 'lineTo', 'setLineDash'].map((name) => [name, () => {}]));
+  ctx.stroke = () => { strokes++; };
+  const chart = {
+    canvas, ctx, chartArea: { left: 0, top: 0, right: 200, bottom: 100 },
+    data: { labels: ['一月'], datasets: [{ label: '苹果', data: [12] }, { label: '橙子', data: [24] }] },
+    scales: { x: { id: 'x', axis: 'x', options: { title: { text: '月份' } } }, y: { id: 'y', axis: 'y', options: { title: { text: '销量' } } } },
+    getDatasetMeta(index) { return { type: 'bar', iScale: { axis: 'x' }, data: [{ x: 40 + index * 40, y: 20, base: 90, width: 20, height: 70 }] }; },
+    isDatasetVisible(index) { return index === 0 || secondSeriesVisible; },
+    update() { plugin.afterUpdate(this); plugin.afterDatasetsDraw(this); },
+    draw() { redraws++; }
+  };
+  const chartLibrary = { register(value) { plugin = value; }, getChart(node) { return node === canvas ? chart : undefined; } };
+  const local = vm.createContext({
+    window: { Chart: chartLibrary, addEventListener(name, listener) { listeners[name] = listener; } },
+    document: { querySelectorAll: () => [canvas], createElement: element },
+    setInterval, clearInterval
+  });
+  vm.runInContext(fs.readFileSync(path.join(root, 'extension/canvas-chart.js'), 'utf8'), local);
+  listeners['mingxi-chart-enable']();
+  assert(strokes >= 2);
+  assert.match(inserted.children[0].textContent, /苹果、橙子.*月份.*销量/);
+  assert.equal(inserted.children[1].children[1].children[2].textContent, '12');
+  secondSeriesVisible = false;
+  const beforeHidden = strokes;
+  chart.update();
+  assert.equal(strokes, beforeHidden);
+  assert.equal(inserted.removed, true);
+  secondSeriesVisible = true;
+  chart.update();
+  assert.equal(inserted.removed, undefined);
+  listeners['mingxi-chart-disable']();
+  assert.equal(inserted.removed, true);
+  assert.equal(redraws, 1);
+});
+
 test('extension update does not overwrite preferences', async () => {
   let installed;
   let writes = 0;

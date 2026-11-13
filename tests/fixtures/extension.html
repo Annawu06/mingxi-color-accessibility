@@ -6,6 +6,18 @@
     <rect data-series="oranges" x="35" y="20" width="15" height="20" fill="green"/>
   </svg>
   <svg id="unknown" role="img" viewBox="0 0 100 50"><rect x="10" y="10" width="10" height="20" fill="red"/><rect x="30" y="10" width="10" height="20" fill="green"/></svg>
+  <svg id="dynamic" role="img" viewBox="0 0 100 50"><rect data-series="first" x="10" y="10" width="10" height="20" fill="red"/></svg>
+  <svg id="dash" role="img" viewBox="0 0 100 50"><path data-series="a" d="M0 10L90 10" fill="none" stroke="red"/><path id="dash-changed" data-series="b" d="M0 20L90 20" fill="none" stroke="green" stroke-dasharray="3 1"/><path id="dash-restored" data-series="c" d="M0 30L90 30" fill="none" stroke="blue" stroke-dasharray="4 1"/></svg>
+  <div class="success" id="success">保存完成</div>
+  <div data-status="success" id="plain-success">已保存</div>
+  <div class="warning" id="warning">需要检查</div>
+  <div class="error" id="error">保存失败</div>
+  <div class="error" id="ordinary-error">error is a code property</div>
+  <div role="alert" id="neutral-alert">网络状态有变化</div>
+  <div class="is-error" data-status="success" id="explicit-success">已保存</div>
+  <input id="invalid" aria-invalid="true">
+  <label for="required">姓名</label><input id="required" required>
+  <canvas id="unsupported" width="50" height="50" aria-label="未知 Canvas 图表"></canvas>
   <div style="background-color:black"><span id="alpha" style="background-color:rgba(255,255,255,.5);color:white">Transparent background</span></div>
   <script>
     chrome.storage = { sync: { get: async () => ({ global: { enabled: false } }) } };
@@ -25,11 +37,36 @@
         if (Math.abs(bg[0] - 127.5) > 0.1) throw new Error(`Alpha composite: ${bg}`);
         applySettings(MingxiSettings.effective({ enabled: true, chartHints: true, autoContrast: true, colorRemap: false }));
         if (!recognized.querySelector('[data-mingxi-generated]')) throw new Error('Recognized chart was not enhanced');
+        const patternStrokes = [...recognized.querySelectorAll('pattern path')].map((path) => path.getAttribute('stroke'));
+        if (!patternStrokes.includes('#000') || !patternStrokes.includes('#fff')) throw new Error('Pattern contrast is wrong');
+        if (document.querySelector('#dash-changed').getAttribute('stroke-dasharray') !== '7 3') throw new Error('Dashed line was not enhanced');
+        document.querySelector('#dash-changed').setAttribute('stroke-dasharray', '5 5');
         if (unknown.innerHTML !== unknownOriginal) throw new Error('Unknown chart was modified');
+        for (const [id, label] of [['success', ''], ['plain-success', '成功'], ['warning', '警告'], ['error', ''], ['neutral-alert', '提示'], ['explicit-success', '成功']]) {
+          const node = document.getElementById(id);
+          if (node.dataset.mingxiLabel !== label || !getComputedStyle(node, '::before').content.includes(node.dataset.mingxiMark)) throw new Error(`${id} status hint is wrong`);
+        }
+        if (document.querySelector('#ordinary-error').hasAttribute('data-mingxi-mark')) throw new Error('Ordinary error class was misclassified');
+        if (!document.querySelector('label[for="required"]').hasAttribute('data-mingxi-required')) throw new Error('Required label missing');
+        if (!document.querySelector('#invalid + [data-mingxi-status-hint]')?.textContent.includes('错误')) throw new Error('Invalid input text hint missing');
+        document.querySelector('#warning').className = '';
+        document.querySelector('#plain-success').dataset.status = 'error';
+        document.querySelector('#dynamic').insertAdjacentHTML('beforeend', '<rect data-series="second" x="30" y="10" width="10" height="20" fill="green"/>');
         await new Promise((resolve) => setTimeout(resolve, 300));
+        if (document.querySelector('#warning').hasAttribute('data-mingxi-mark')) throw new Error('Changed state was not cleared');
+        if (document.querySelector('#plain-success').dataset.mingxiLabel !== '错误') throw new Error('Changed state did not update');
+        if (!document.querySelector('#dynamic').hasAttribute('data-mingxi-chart-enhanced')) throw new Error('Dynamic chart was not enhanced');
+        const audit = await auditPage();
+        if (audit.chartSupport.svgEnhanced !== 3 || audit.chartSupport.canvasTotal !== 1 || audit.chartSupport.unrecognizedCanvas.length !== 1) throw new Error('Chart support report is wrong');
+        applySettings(MingxiSettings.effective({ enabled:true, chartHints:true, autoContrast:true, colorRemap:false, requiredHints:false }));
+        if (document.querySelector('[data-mingxi-required]')) throw new Error('Required hint did not clear');
         applySettings(MingxiSettings.effective());
         if (recognized.innerHTML !== original) throw new Error('SVG did not restore');
+        if (document.querySelector('#dash-changed').getAttribute('stroke-dasharray') !== '5 5' || document.querySelector('#dash-restored').getAttribute('stroke-dasharray') !== '4 1') throw new Error('Dash restoration overwrote page changes');
+        if (document.querySelector('#dynamic [data-mingxi-generated]')) throw new Error('Dynamic SVG did not restore');
         if (document.querySelector('#alpha').hasAttribute('data-mingxi-contrast-fix')) throw new Error('Contrast fix did not restore');
+        if (document.querySelector('[data-mingxi-label]')) throw new Error('Status text hint did not restore');
+        if (document.querySelector('[data-mingxi-status-hint]')) throw new Error('Input status hint did not restore');
         document.body.dataset.testStatus = 'pass';
       } catch (error) {
         document.body.dataset.testStatus = `fail: ${error.message}`;

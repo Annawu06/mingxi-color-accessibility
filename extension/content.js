@@ -1,10 +1,19 @@
 const { parseRgb, contrastRatio, backgroundFor, textContrast } = MingxiContrast;
 const STYLE_ID = 'mingxi-color-friendly-style';
+const SVG_CHART_SELECTOR = 'svg[role="img"],svg[aria-label*="chart" i],svg[aria-label*="图表"]';
+const svgChartIds = new WeakMap();
+let nextSvgChartId = 0;
 let scanTimer;
 let observerTimer;
 let scanGeneration = 0;
 let probeEnabled = false;
 let activeSettings = null;
+const semanticGroups = [
+  { type:'success', mark:'✓', label:'成功', classes:'.success,.is-success,.alert-success', labels:/success|成功/i },
+  { type:'warning', mark:'!', label:'警告', classes:'.warning,.is-warning,.alert-warning', labels:/warning|警告/i },
+  { type:'error', mark:'×', label:'错误', classes:'.is-error,.alert-danger', labels:/error|错误/i }
+];
+const semanticSelector = '[data-status="success"],[data-status="warning"],[data-status="error"],[aria-invalid="true"],[role="alert"],[role="status"][aria-label],.success,.is-success,.alert-success,.warning,.is-warning,.alert-warning,.is-error,.alert-danger';
 
 const modeStyles = {
   protanopia: (t) => `sepia(${.18*t}) saturate(${1+.18*t}) hue-rotate(${-12*t}deg) contrast(${1+.12*t})`,
@@ -16,6 +25,7 @@ const modeStyles = {
 function applySettings(settings) {
   scanGeneration++;
   activeSettings = settings;
+  window.dispatchEvent(new Event(settings.enabled && !settings.excluded && settings.chartHints ? 'mingxi-chart-enable' : 'mingxi-chart-disable'));
   let style = document.getElementById(STYLE_ID);
   if (!style) { style = document.createElement('style'); style.id = STYLE_ID; (document.head || document.documentElement).appendChild(style); }
   if (!settings.enabled || settings.excluded) {
@@ -45,12 +55,18 @@ function applySettings(settings) {
   document.documentElement.style.setProperty('--mingxi-image-filter', filter, 'important');
   style.textContent = `
     html[data-mingxi-remap="true"] body > *:not(#mingxi-reader) { filter:var(--mingxi-remap-filter) !important; }
-    [data-mingxi-mark]::before { content:attr(data-mingxi-mark); display:inline-block; margin-right:.4em; font-weight:700; }
-    [data-mingxi-mark="✓"]::before { color:#087443; } [data-mingxi-mark="!"]::before { color:#a34a00; } [data-mingxi-mark="×"]::before { color:#a00025; }
+    [data-mingxi-mark]::before { content:attr(data-mingxi-mark) ' ' attr(data-mingxi-label); display:inline-block; margin-right:.4em; font-weight:700; }
+    [data-mingxi-mark="✓"]::before { color:#087443; } [data-mingxi-mark="!"]::before, [data-mingxi-mark="i"]::before { color:#a34a00; } [data-mingxi-mark="×"]::before { color:#a00025; }
+    [data-mingxi-status-hint] { display:inline-block; margin-left:.4em; font-weight:700; }
+    [data-mingxi-status-hint="✓"] { color:#087443; } [data-mingxi-status-hint="!"], [data-mingxi-status-hint="i"] { color:#a34a00; } [data-mingxi-status-hint="×"] { color:#a00025; }
     html[data-mingxi-links="true"] a:not([role="button"]):not([class*="button" i]) { text-decoration-line:underline !important; text-decoration-thickness:.12em !important; text-underline-offset:.16em !important; }
     html[data-mingxi-images="true"] img, html[data-mingxi-images="true"] canvas, html[data-mingxi-images="true"] video { outline:1px solid rgba(30,77,59,.18); }
     html[data-mingxi-images="true"][data-mingxi-remap="false"] img, html[data-mingxi-images="true"][data-mingxi-remap="false"] canvas, html[data-mingxi-images="true"][data-mingxi-remap="false"] video { filter:var(--mingxi-image-filter) !important; }
     html[data-mingxi-images="true"] svg[role="img"], html[data-mingxi-images="true"] [aria-label*="chart" i], html[data-mingxi-images="true"] [aria-label*="图表"] { outline:2px solid rgba(30,77,59,.35) !important; }
+    [data-mingxi-canvas-summary] { max-width:100%; overflow:auto; margin:.5em 0; color:#18251f; font:14px/1.5 Arial,'Noto Sans SC',sans-serif; }
+    [data-mingxi-canvas-summary] summary { cursor:pointer; font-weight:700; }
+    [data-mingxi-canvas-summary] table { border-collapse:collapse; margin:.4em 0; }
+    [data-mingxi-canvas-summary] th, [data-mingxi-canvas-summary] td { border:1px solid #89958e; padding:.2em .5em; text-align:left; }
     [data-mingxi-required]::after { content:' (必填)'; color:#8b3a24; font-size:.9em; font-weight:700; }
     html[data-mingxi-focus="true"] :focus-visible { outline:3px solid #005fcc !important; outline-offset:3px !important; box-shadow:0 0 0 5px #fff, 0 0 0 8px #005fcc !important; }
     #mingxi-color-probe { position:fixed; z-index:2147483647; pointer-events:none; padding:7px 9px; border-radius:7px; background:#18251f; color:#fff; font:12px Arial,sans-serif; box-shadow:0 4px 15px #0004; }
@@ -65,22 +81,69 @@ function applySettings(settings) {
   if (settings.autoContrast) scheduleContrastScan(); else clearContrastFixes();
   applyFontScale(Number(settings.fontScale ?? 100));
   if (settings.chartHints) markCharts(); else clearChartEnhancements();
-  if (settings.requiredHints !== false) markRequiredFields();
+  markRequiredFields(settings.requiredHints !== false);
 }
 
 function markSemanticElements(enabled) {
-  document.querySelectorAll('[data-mingxi-mark]').forEach((node) => node.removeAttribute('data-mingxi-mark'));
-  if (!enabled) return;
-  const groups = [
-    { mark:'✓', selectors:'[aria-label*="success" i], [aria-label*="成功"], .success, .is-success, [data-status="success"]' },
-    { mark:'!', selectors:'[role="alert"], [aria-label*="warning" i], [aria-label*="警告"], .warning, .is-warning, [data-status="warning"]' },
-    { mark:'×', selectors:'[aria-invalid="true"], [aria-label*="error" i], [aria-label*="错误"], .error, .is-error, [data-status="error"]' }
-  ];
-  groups.forEach(({ mark, selectors }) => document.querySelectorAll(selectors).forEach((node) => node.setAttribute('data-mingxi-mark', mark)));
+  if (!enabled) {
+    document.querySelectorAll('[data-mingxi-mark]').forEach((node) => { node.removeAttribute('data-mingxi-mark'); node.removeAttribute('data-mingxi-label'); });
+    document.querySelectorAll('[data-mingxi-status-hint]').forEach((node) => node.remove());
+    return;
+  }
+  const nodes = new Set([...document.querySelectorAll(semanticSelector), ...document.querySelectorAll('[data-mingxi-mark]')]);
+  document.querySelectorAll('[data-mingxi-status-hint]').forEach((hint) => { if (hint.previousElementSibling) nodes.add(hint.previousElementSibling); });
+  nodes.forEach(updateSemanticHint);
+}
+
+function semanticState(node) {
+  const explicit = semanticGroups.find(({ type }) => node.getAttribute('data-status') === type);
+  if (explicit) return explicit;
+  if (node.getAttribute('aria-invalid') === 'true') return semanticGroups[2];
+  const byClass = [...semanticGroups].reverse().find(({ classes }) => node.matches(classes));
+  if (byClass) return byClass;
+  const ariaLabel = node.getAttribute('aria-label') || '';
+  const byLabel = [...semanticGroups].reverse().find(({ labels }) => labels.test(ariaLabel));
+  if (byLabel) return byLabel;
+  if (node.getAttribute('role') !== 'alert') return null;
+  const text = node.textContent.trim();
+  if (/^(错误|失败|出错|error|failed)/i.test(text)) return semanticGroups[2];
+  if (/^(警告|注意|warning)/i.test(text)) return semanticGroups[1];
+  if (/^(成功|完成|success)/i.test(text)) return semanticGroups[0];
+  return { mark:'i', label:'提示' };
+}
+
+function statusAlreadyStated(node, label) {
+  const text = node.textContent.trim();
+  if (label === '成功') return /成功|已完成|完成|success/i.test(text);
+  if (label === '警告') return /警告|注意|warning/i.test(text);
+  if (label === '错误') return /错误|失败|出错|error|failed/i.test(text);
+  return /^(提示|通知)\s*[:：]/.test(text);
+}
+
+function updateSemanticHint(node) {
+  const state = activeSettings?.semanticHints && activeSettings.enabled && !activeSettings.excluded && node.matches(semanticSelector) ? semanticState(node) : null;
+  const label = state && !statusAlreadyStated(node, state.label) ? state.label : '';
+  if (node.matches('input,select,textarea')) {
+    node.removeAttribute('data-mingxi-mark');
+    node.removeAttribute('data-mingxi-label');
+    const existing = node.nextElementSibling?.hasAttribute('data-mingxi-status-hint') ? node.nextElementSibling : null;
+    const text = state ? ` ${state.mark}${label ? ` ${label}` : ''}` : '';
+    if (existing?.dataset.mingxiStatusHint === state?.mark && existing.textContent === text) return;
+    existing?.remove();
+    if (!state) return;
+    const hint = document.createElement('span');
+    hint.dataset.mingxiStatusHint = state.mark;
+    hint.textContent = text;
+    node.after(hint);
+  } else {
+    if (!state) { node.removeAttribute('data-mingxi-mark'); node.removeAttribute('data-mingxi-label'); return; }
+    if (node.dataset.mingxiMark !== state.mark) node.setAttribute('data-mingxi-mark', state.mark);
+    if (node.dataset.mingxiLabel !== label) node.setAttribute('data-mingxi-label', label);
+  }
 }
 
 function markCharts() {
-  document.querySelectorAll('svg[role="img"],svg[aria-label*="chart" i],svg[aria-label*="图表"]').forEach(enhanceSvgChart);
+  document.querySelectorAll(SVG_CHART_SELECTOR).forEach(enhanceSvgChart);
 }
 
 function chartSeries(node) {
@@ -94,6 +157,7 @@ function enhanceSvgChart(svg) {
     .filter((node) => !node.closest('defs') && chartSeries(node));
   const series = [...new Set(shapes.map(chartSeries))].sort();
   if (series.length < 2) return;
+  if (!svgChartIds.has(svg)) svgChartIds.set(svg, ++nextSvgChartId);
   const ns = 'http://www.w3.org/2000/svg';
   let defs = svg.querySelector('defs');
   if (!defs) {
@@ -103,11 +167,13 @@ function enhanceSvgChart(svg) {
   }
   const patterns = series.map((name, index) => {
     const pattern = document.createElementNS(ns, 'pattern');
-    pattern.id = `mingxi-pattern-${Math.random().toString(36).slice(2)}`;
+    pattern.id = `mingxi-pattern-${svgChartIds.get(svg)}-${index}`;
     pattern.dataset.mingxiGenerated = 'true';
     pattern.setAttribute('width', '8'); pattern.setAttribute('height', '8'); pattern.setAttribute('patternUnits', 'userSpaceOnUse');
     const directions = ['M-2 2L2 -2M0 8L8 0M6 10L10 6', 'M-2 6L6 -2M2 10L10 2', 'M4 0V8M0 4H8'];
-    pattern.innerHTML = `<path d="${directions[index % directions.length]}" stroke="currentColor" stroke-width="1.4" opacity=".7"/>`;
+    const color = parseRgb(getComputedStyle(shapes.find((node) => chartSeries(node) === name)).fill);
+    const stroke = color && contrastRatio([255,255,255], color) > contrastRatio([0,0,0], color) ? '#fff' : '#000';
+    pattern.innerHTML = `<path d="${directions[index % directions.length]}" stroke="${stroke}" stroke-width="1.4"/>`;
     defs.appendChild(pattern);
     return pattern.id;
   });
@@ -126,7 +192,8 @@ function enhanceSvgChart(svg) {
     }
     if ((tag === 'path' || tag === 'polyline') && index % 3) {
       node.dataset.mingxiOriginalDash = node.getAttribute('stroke-dasharray') ?? '';
-      node.setAttribute('stroke-dasharray', ['','7 3', '2 3'][index % 3]);
+      node.dataset.mingxiAppliedDash = ['','7 3', '2 3'][index % 3];
+      node.setAttribute('stroke-dasharray', node.dataset.mingxiAppliedDash);
     }
     const value = node.getAttribute('data-value');
     if (tag === 'rect' && value && /^[-+]?\d+(?:\.\d+)?$/.test(value)) {
@@ -143,7 +210,13 @@ function enhanceSvgChart(svg) {
   svg.dataset.mingxiChartEnhanced = 'true';
 }
 
-function markRequiredFields() { document.querySelectorAll('input[required],select[required],textarea[required], [aria-required="true"]').forEach((field) => { const label = field.labels?.[0]; if (label) label.setAttribute('data-mingxi-required', 'true'); else field.setAttribute('data-mingxi-required', 'true'); }); }
+function markRequiredFields(enabled) {
+  document.querySelectorAll('[data-mingxi-required]').forEach((node) => node.removeAttribute('data-mingxi-required'));
+  if (!enabled) return;
+  document.querySelectorAll('input[required],select[required],textarea[required],[aria-required="true"]').forEach((field) => {
+    (field.labels?.[0] || field).setAttribute('data-mingxi-required', 'true');
+  });
+}
 
 function walkElements(root, visit, generation = scanGeneration) {
   if (!root) return;
@@ -167,7 +240,8 @@ function scanContrast(root = document.body, reset = true) {
   walkElements(root, (node) => {
     if (node.hasAttribute('data-mingxi-contrast-fix')) return;
     const info = textContrast(node);
-    if (!info || info.ratio >= (info.large ? 3 : 4.5)) return;
+    const tooltip = node.closest('[role="tooltip"],.tooltip,.echarts-tooltip,.highcharts-tooltip');
+    if (!info || info.ratio >= (tooltip ? (info.large ? 4.5 : 7) : (info.large ? 3 : 4.5))) return;
     const black = contrastRatio([0,0,0], info.bg);
     const white = contrastRatio([255,255,255], info.bg);
     node.dataset.mingxiOriginalColor = node.style.getPropertyValue('color');
@@ -226,17 +300,21 @@ function applyCustomMappings(rules, root = document.body, reset = true) {
 }
 function restoreCustomMappings() { document.querySelectorAll('[data-mingxi-map-color],[data-mingxi-map-background]').forEach((node) => { if (node.hasAttribute('data-mingxi-map-color')) restoreProperty(node, 'color', node.dataset.mingxiMapColor, node.dataset.mingxiMapColorPriority, node.dataset.mingxiAppliedMapColor); if (node.hasAttribute('data-mingxi-map-background')) restoreProperty(node, 'background-color', node.dataset.mingxiMapBackground, node.dataset.mingxiMapBackgroundPriority, node.dataset.mingxiAppliedMapBackground); for (const name of ['data-mingxi-map-color','data-mingxi-map-color-priority','data-mingxi-applied-map-color','data-mingxi-map-background','data-mingxi-map-background-priority','data-mingxi-applied-map-background']) node.removeAttribute(name); }); }
 function clearChartEnhancements() {
-  document.querySelectorAll('[data-mingxi-generated]').forEach((node) => node.remove());
-  document.querySelectorAll('[data-mingxi-original-dash]').forEach((node) => {
-    if (node.dataset.mingxiOriginalDash) node.setAttribute('stroke-dasharray', node.dataset.mingxiOriginalDash);
-    else node.removeAttribute('stroke-dasharray');
-    node.removeAttribute('data-mingxi-original-dash');
-  });
-  document.querySelectorAll('[data-mingxi-chart-enhanced]').forEach((node) => {
-    node.removeAttribute('data-mingxi-chart-enhanced');
-  });
+  document.querySelectorAll('svg[data-mingxi-chart-enhanced]').forEach(clearSvgChart);
 }
-function clearEnhancements() { markSemanticElements(false); clearContrastFixes(); clearFontScale(); restoreCustomMappings(); clearChartEnhancements(); document.querySelectorAll('[data-mingxi-required]').forEach((node) => node.removeAttribute('data-mingxi-required')); }
+function clearSvgChart(svg) {
+  svg.querySelectorAll('[data-mingxi-generated]').forEach((node) => node.remove());
+  svg.querySelectorAll('[data-mingxi-original-dash]').forEach((node) => {
+    if (node.getAttribute('stroke-dasharray') === node.dataset.mingxiAppliedDash) {
+      if (node.dataset.mingxiOriginalDash) node.setAttribute('stroke-dasharray', node.dataset.mingxiOriginalDash);
+      else node.removeAttribute('stroke-dasharray');
+    }
+    node.removeAttribute('data-mingxi-original-dash');
+    node.removeAttribute('data-mingxi-applied-dash');
+  });
+  svg.removeAttribute('data-mingxi-chart-enhanced');
+}
+function clearEnhancements() { markSemanticElements(false); clearContrastFixes(); clearFontScale(); restoreCustomMappings(); clearChartEnhancements(); markRequiredFields(false); }
 function elementPath(node) {
   const parts = [];
   while (node && node !== document.body && parts.length < 5) {
@@ -279,7 +357,23 @@ async function auditPage() {
     node = walker.nextNode();
     if (scanned % 100 === 0) await new Promise((resolve) => setTimeout(resolve, 0));
   }
-  return { scanned, checked, skipped, aa, aaa, colorOnly, examples, issues, issuesOmitted:Math.max(0, aa - issues.length), links:document.querySelectorAll('a').length, forms:document.querySelectorAll('input,select,textarea').length };
+  const canvases = [...document.querySelectorAll('canvas')];
+  const unrecognizedCanvas = canvases.filter((canvas) => !canvas.nextElementSibling?.hasAttribute('data-mingxi-canvas-summary'));
+  return {
+    scanned, checked, skipped, aa, aaa, colorOnly, examples, issues, issuesOmitted:Math.max(0, aa - issues.length),
+    links:document.querySelectorAll('a').length, forms:document.querySelectorAll('input,select,textarea').length,
+    chartSupport:{
+      enabled:Boolean(activeSettings?.enabled && !activeSettings.excluded && activeSettings.chartHints),
+      svgCandidates:document.querySelectorAll(SVG_CHART_SELECTOR).length,
+      svgEnhanced:document.querySelectorAll('svg[data-mingxi-chart-enhanced]').length,
+      canvasTotal:canvases.length,
+      canvasEnhanced:document.querySelectorAll('[data-mingxi-canvas-summary]').length,
+      unrecognizedCanvas:unrecognizedCanvas.slice(0, 50).map((canvas) => ({ path:elementPath(canvas), label:canvas.getAttribute('aria-label') || canvas.getAttribute('title') || '' })),
+      unrecognizedCanvasOmitted:Math.max(0, unrecognizedCanvas.length - 50),
+      statusCandidates:document.querySelectorAll(semanticSelector).length,
+      statusEnhanced:document.querySelectorAll('[data-mingxi-mark],[data-mingxi-status-hint]').length
+    }
+  };
 }
 function inspectElement(info = {}) { let node; if (info.srcUrl) node = [...document.images].find((image) => image.currentSrc === info.srcUrl || image.src === info.srcUrl); if (!node && info.selectionText) { const selection = window.getSelection(); node = selection?.anchorNode?.parentElement; } node ||= document.elementFromPoint(innerWidth / 2, innerHeight / 2); if (!node) return { ok:false }; const css = getComputedStyle(node); const fg = parseRgb(css.color) || [0,0,0]; const bg = backgroundFor(node); return { ok:true, element:node.tagName.toLowerCase(), text:(node.textContent || info.selectionText || '').trim().slice(0,80), contrast:Number(contrastRatio(fg,bg).toFixed(2)), friendly:contrastRatio(fg,bg) >= 4.5 }; }
 
@@ -311,36 +405,59 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 refresh().catch(() => {});
 function enhanceAddedNode(root) {
   if (!root.isConnected || !activeSettings?.enabled || activeSettings.excluded || root.closest('#mingxi-reader')) return;
-  const semantic = [
-    ['✓', '[aria-label*="success" i], [aria-label*="成功"], .success, .is-success, [data-status="success"]'],
-    ['!', '[role="alert"], [aria-label*="warning" i], [aria-label*="警告"], .warning, .is-warning, [data-status="warning"]'],
-    ['×', '[aria-invalid="true"], [aria-label*="error" i], [aria-label*="错误"], .error, .is-error, [data-status="error"]']
-  ];
   walkElements(root, (node) => {
-    if (activeSettings.semanticHints) for (const [mark, selector] of semantic) if (node.matches(selector)) node.setAttribute('data-mingxi-mark', mark);
+    if (activeSettings.semanticHints && node.matches(semanticSelector)) updateSemanticHint(node);
     if (activeSettings.requiredHints !== false && node.matches('input[required],select[required],textarea[required],[aria-required="true"]')) (node.labels?.[0] || node).setAttribute('data-mingxi-required', 'true');
-    if (activeSettings.chartHints && node.matches('svg[role="img"],svg[aria-label*="chart" i],svg[aria-label*="图表"]')) enhanceSvgChart(node);
+    if (activeSettings.chartHints && node.matches(SVG_CHART_SELECTOR)) enhanceSvgChart(node);
   });
   applyFontScale(Number(activeSettings.fontScale ?? 100), root, false);
   applyCustomMappings(activeSettings.customMappings || [], root, false);
   if (activeSettings.autoContrast) scanContrast(root, false);
 }
 const pendingRoots = new Set();
+const pendingSvg = new Set();
+const pendingStatuses = new Set();
+let pendingRequired = false;
 function flushAddedNodes() {
   observerTimer = undefined;
   const roots = Array.from(pendingRoots).slice(0, 40);
   roots.forEach((root) => pendingRoots.delete(root));
   roots.forEach(enhanceAddedNode);
-  if (pendingRoots.size) observerTimer = setTimeout(flushAddedNodes, 150);
+  const statuses = Array.from(pendingStatuses).slice(0, 100);
+  statuses.forEach((node) => pendingStatuses.delete(node));
+  statuses.forEach((node) => { if (node.isConnected) updateSemanticHint(node); });
+  if (pendingRequired) { pendingRequired = false; markRequiredFields(activeSettings.requiredHints !== false); }
+  const svgs = Array.from(pendingSvg).slice(0, 20);
+  svgs.forEach((svg) => pendingSvg.delete(svg));
+  svgs.forEach((svg) => {
+    if (!svg.isConnected || !activeSettings?.chartHints) return;
+    clearSvgChart(svg);
+    if (svg.matches(SVG_CHART_SELECTOR)) enhanceSvgChart(svg);
+  });
+  if (pendingRoots.size || pendingStatuses.size || pendingSvg.size || pendingRequired) observerTimer = setTimeout(flushAddedNodes, 150);
 }
 const observer = new MutationObserver((records) => {
   if (!activeSettings?.enabled || activeSettings.excluded) return;
-  for (const record of records) for (const node of record.addedNodes) {
-    if (node.nodeType !== Node.ELEMENT_NODE || node.id === STYLE_ID || node.id === 'mingxi-reader') continue;
-    if ([...pendingRoots].some((root) => root.contains(node))) continue;
-    for (const root of pendingRoots) if (node.contains(root)) pendingRoots.delete(root);
-    pendingRoots.add(node);
+  for (const record of records) {
+    if (record.target.closest?.('[data-mingxi-generated],[data-mingxi-canvas-summary],[data-mingxi-status-hint]')) continue;
+    if (record.type === 'attributes') {
+      if (record.target.hasAttribute('data-mingxi-generated')) continue;
+      if (record.attributeName === 'required' || record.attributeName === 'aria-required') { pendingRequired = true; continue; }
+      const svg = record.target.closest('svg');
+      if (svg && activeSettings.chartHints) pendingSvg.add(svg);
+      else if (['class','aria-invalid','aria-label','data-status','role'].includes(record.attributeName)) pendingStatuses.add(record.target);
+      continue;
+    }
+    const svg = record.target.closest?.('svg');
+    if (svg && activeSettings.chartHints && [...record.addedNodes, ...record.removedNodes].some((node) => node.nodeType === Node.ELEMENT_NODE && !node.hasAttribute('data-mingxi-generated'))) pendingSvg.add(svg);
+    for (const node of record.addedNodes) {
+      if (node.nodeType !== Node.ELEMENT_NODE || node.id === STYLE_ID || node.id === 'mingxi-reader' || node.hasAttribute('data-mingxi-generated') || node.hasAttribute('data-mingxi-status-hint') || node.hasAttribute('data-mingxi-canvas-summary')) continue;
+      if (svg) continue;
+      if ([...pendingRoots].some((root) => root.contains(node))) continue;
+      for (const root of pendingRoots) if (node.contains(root)) pendingRoots.delete(root);
+      pendingRoots.add(node);
+    }
   }
-  if (pendingRoots.size && !observerTimer) observerTimer = setTimeout(flushAddedNodes, 150);
+  if ((pendingRoots.size || pendingStatuses.size || pendingSvg.size || pendingRequired) && !observerTimer) observerTimer = setTimeout(flushAddedNodes, 150);
 });
-observer.observe(document.documentElement, { childList:true, subtree:true });
+observer.observe(document.documentElement, { childList:true, attributes:true, attributeFilter:['class','aria-invalid','aria-label','aria-required','required','data-status','role','data-series','data-series-id','data-value','fill','stroke'], subtree:true });

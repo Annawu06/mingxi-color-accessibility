@@ -1,0 +1,85 @@
+name: 功能测试反馈 / Feature feedback
+description: 报告状态提示、图表增强或页面兼容性问题
+title: "[反馈] "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        请先查看 [支持矩阵](https://github.com/Annawu06/mingxi-color-accessibility/blob/main/docs/support-matrix.md)。可从扩展弹窗导出“当前页面诊断”JSON。上传截图或报告前，请遮盖账号、个人信息和敏感页面内容。
+  - type: dropdown
+    id: target
+    attributes:
+      label: 测试对象
+      options:
+        - 成功、警告或错误状态
+        - 内联 SVG 图表
+        - Chart.js Canvas 图表
+        - 其他 Canvas 图表
+        - PNG、JPG 或图片中的图表
+        - 其他页面元素
+    validations:
+      required: true
+  - type: dropdown
+    id: result
+    attributes:
+      label: 测试结果
+      options:
+        - 功能正常
+        - 部分有效
+        - 无效
+        - 页面异常或性能问题
+    validations:
+      required: true
+  - type: input
+    id: extension-version
+    attributes:
+      label: 扩展版本
+      placeholder: 例如 0.1.0
+    validations:
+      required: true
+  - type: input
+    id: browser-version
+    attributes:
+      label: 浏览器与版本
+      placeholder: 例如 Chrome 130
+    validations:
+      required: true
+  - type: input
+    id: page-url
+    attributes:
+      label: 测试网址（可选）
+      description: 登录或敏感页面可省略网址，并描述页面类型。
+  - type: textarea
+    id: settings
+    attributes:
+      label: 启用的设置
+      description: 请写明颜色重映射、图表提示、媒体滤镜及相关单项开关的状态。
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: 复现步骤
+      placeholder: |
+        1. 打开页面
+        2. 启用某项设置
+        3. 操作图表或状态控件
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: 预期表现
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: 实际表现
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: 诊断报告与截图（可选）
+      description: 可粘贴诊断摘要或拖入已脱敏的截图；不要上传完整网页内容或账号信息。

@@ -24,6 +24,12 @@
   "content_scripts": [
     {
       "matches": ["<all_urls>"],
+      "js": ["canvas-chart.js"],
+      "run_at": "document_start",
+      "world": "MAIN"
+    },
+    {
+      "matches": ["<all_urls>"],
       "js": ["core/settings.js", "core/contrast.js", "content.js"],
       "run_at": "document_start"
     }
